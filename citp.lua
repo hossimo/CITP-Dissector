@@ -10,10 +10,10 @@ local str=""
   if buffer(6,2):uint() == 0 then
     str=" (Ignored)"
   end
-  subtree:add(buffer(6,2), "Request/Response ID: " .. buffer(6,1):uint() + (buffer(7,1):uint()*256) ..str)
-  subtree:add(buffer(8,4), "Message Size: " .. buffer(8,1):uint() + (buffer(9,1):uint()*256) + (buffer(10,1):uint()*512) + (buffer(11,1):uint()*1024))
-  subtree:add(buffer(12,2), "Message Part Count: " .. buffer(12,1):uint()+ (buffer(13,1):uint()*16))
-  subtree:add(buffer(14,2), "Message Part: " .. buffer(14,1):uint()+ (buffer(15,1):uint()*256))
+  subtree:add(buffer(6,2), "Request/Response ID: " .. buffer(6,2):le_uint())
+  subtree:add(buffer(8,4), "Message Size: " .. buffer(8,4):le_uint())
+  subtree:add(buffer(12,2), "Message Part Count: " .. buffer(12,2):le_uint())
+  subtree:add(buffer(14,2), "Message Part: " .. buffer(14,2):le_uint())
   subtree:add(buffer(16,4), "Content Type: " .. buffer(16,4):string())
 
     -- PINF ------------------------------------------------------------------------
@@ -26,7 +26,7 @@ local str=""
       subtree:add(buffer(start, count),"State: ".. buffer(start):string())
     end
     if buffer(20,4):string() == "PLoc" then
-      subtree:add(buffer(24,2), "Listeng Port: " .. (buffer(24,1):uint()) + (buffer(25,1):uint()*256))
+      subtree:add(buffer(24,2), "Listeng Port: " .. (buffer(24,2):le_uint()))
       
       start = 26
       count = string.find(buffer(start):string(),"\0",1)
@@ -51,6 +51,8 @@ local str=""
       SInf = "Server Information Message",
       Nack = "Negative Acknowledge Message",
       LSta = "Layer Status Message",
+      StFr = "Stream Frame message",
+      RqSt = "Request Stream message",
     }
     str = ct[buffer(22,4):string()] or "(Unknown)"
     
@@ -104,6 +106,62 @@ local str=""
       subtree:add(buffer(22),"Received Content: " .. buffer(22):string())
     end
 
+   -- MSEX/StFr ------------------------------------------------------------------
+    if buffer(22,4):string() == "StFr" then
+      start = 26
+      
+      count = 2
+      subtree:add(buffer(start,count),"SourceIdentifier: " .. buffer(start,count):le_uint())
+      start = start + count
+      
+      count = 4
+      subtree:add(buffer(start,count),"FrameFormat:  " .. buffer(start,count):string())
+      start = start + count
+      
+      count = 2
+      subtree:add(buffer(start,count),"FrameWidth: " .. buffer(start,count):le_uint())
+      start = start + count
+
+      count = 2
+      subtree:add(buffer(start,count),"FrameHeight: " .. buffer(start,count):le_uint())
+      start = start + count
+
+      count = 2
+      subtree:add(buffer(start,count),"BuferSize: " .. buffer(start,count):le_uint())
+      bufferSize = buffer(start,count):le_uint()
+      start = start + count
+
+--      Remainder of packet is frame data, or part of frame data
+    end
+   -- MSEX/RqSt ------------------------------------------------------------------
+    if buffer(22,4):string() == "RqSt" then
+      start = 26
+      
+      count = 2
+      subtree:add(buffer(start,count),"SourceIdentifier: " .. buffer(start,count):le_uint())
+      start = start + count
+      
+      count = 4
+      subtree:add(buffer(start,count),"FrameFormat:  " .. buffer(start,count):string())
+      start = start + count
+      
+      count = 2
+      subtree:add(buffer(start,count),"FrameWidth: " .. buffer(start,count):le_uint())
+      start = start + count
+
+      count = 2
+      subtree:add(buffer(start,count),"FrameHeight: " .. buffer(start,count):le_uint())
+      start = start + count
+
+      count = 1
+      subtree:add(buffer(start,count),"FPS: " .. buffer(start,count):le_uint())
+      start = start + count
+
+      count = 1
+      subtree:add(buffer(start,count),"Timeout: " .. buffer(start,count):le_uint())
+      start = start + count
+    end
+
     -- MSEX/LSta ------------------------------------------------------------------
     if buffer(22,4):string() == "LSta" then
       start = 26
@@ -146,17 +204,17 @@ local str=""
         start = start + count
         
         count = 4
-        length = buffer(start,1):uint() + (buffer(start+1,1):uint()*256) + (buffer(start+2,1):uint()*512) + (buffer(start+3,1):uint()*1024)
+        length = buffer(start,count):le_uint()
         LSta[i]:add(buffer(start,count), "Media Position: " .. length)
         start = start + count
 
         count = 4
-        length = buffer(start,1):uint() + (buffer(start+1,1):uint()*256) + (buffer(start+2,1):uint()*512) + (buffer(start+3,1):uint()*1024)
+        length = buffer(start,count):le_uint()
         LSta[i]:add(buffer(start,count), "Media Length: " .. length)
         start = start + count
         
         count = 1
-        LSta[i]:add(buffer(start,count), "Media FPS: " .. buffer(start,1):uint())
+        LSta[i]:add(buffer(start,count), "Media FPS: " .. buffer(start,count):uint())
         start = start + count
         
         count = 4
