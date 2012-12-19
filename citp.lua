@@ -3,6 +3,7 @@ citp_proto = Proto("citp","CITP")
 function citp_proto.dissector(buffer,pinfo,tree)
 local str=""
   pinfo.cols.protocol = "CITP"
+  pinfo.cols.info = "CITP >" -- info
   local subtree = tree:add(citp_proto,buffer(),"CITP ("..string.len(buffer():string())..")")
   subtree = subtree:add(buffer(0,20),"Descriptor Header (" .. string.len(buffer(0,20):string())..")")
   subtree:add(buffer(0,4), "ID: " .. buffer (0,4):string())
@@ -18,7 +19,8 @@ local str=""
 
     -- PINF ------------------------------------------------------------------------
   if buffer(16,4):string() == "PINF" then
-    subtree = subtree:add(buffer(20),"PINF ("..string.len(buffer(20):string())..")")
+    pinfo.cols.info:append ("PINF >")   -- info
+    subtree:add(buffer(20),"PINF ("..string.len(buffer(20):string())..")")
     subtree:add(buffer(20,4), "Content Type: " .. buffer(20,4):string())
     if buffer(20,4):string() == "PNam" then
       start = 26
@@ -31,19 +33,22 @@ local str=""
       start = 26
       count = string.find(buffer(start):string(),"\0",1)
       subtree:add(buffer(start, count),"Type: ".. buffer(start):string())
-
       start = start+count
+      
       count = string.find(buffer(start):string(),"\0",1)
-      subtree:add(buffer(start, count),"Name: ".. buffer(start):string())
+      name = buffer(start):string()
+      subtree:add(buffer(start, count),"Name: ".. name)
 
       start = start+count
       count = string.find(buffer(start):string(),"\0",1)
       subtree:add(buffer(start, count),"State: ".. buffer(start):string())
     end
+    pinfo.cols.info:append (name)   -- info    
   end
  
     -- MSEX ------------------------------------------------------------------------
   if buffer (16,4):string() == "MSEX" then
+    pinfo.cols.info:append ("MSEX >") -- info
     local str = ""
     
     local ct = {
@@ -63,12 +68,14 @@ local str=""
     
     -- MSEX/CInf --------------------------------------------------------------------
     if buffer(22,4):string() == "CInf" then
+      pinfo.cols.info:append ("CInf >") -- info
       subtree:add(buffer(26,1), "Supported Version Count: ".. buffer(26,1):uint())
       subtree:add(buffer(27,2), "Supports -NYI-: ".. buffer(27,1))
     end
 
     -- MSEX/SInf 1.0 or 1.1 ---------------------------------------------------------
     if (buffer(22,4):string() == "SInf") and (version <= "1.1") then
+      pinfo.cols.info:append ("SInf"..version.." >") -- info
       start = 26
       count = 0
       str=""
@@ -97,74 +104,109 @@ local str=""
       end
     end
     -- MSEX/SInf 1.2 --------------------------------------------------------------
-    if (buffer(22,4):string() == "SInf") and (version <= "1.1") then
+    if (buffer(22,4):string() == "SInf") and (version >= "1.2") then
+      pinfo.cols.info:append ("SInf"..version.." >") -- info
       subtree:add("Version - NYI -")
     end
 
     -- MSEX/Nack ------------------------------------------------------------------
     if buffer(22,4):string() == "Nack" then
+      pinfo.cols.info:append ("Nack >") -- info
       subtree:add(buffer(22),"Received Content: " .. buffer(22):string())
     end
 
    -- MSEX/StFr ------------------------------------------------------------------
     if buffer(22,4):string() == "StFr" then
+      pinfo.cols.info:append ("StFr >") -- info
       start = 26
       
       count = 2
-      subtree:add(buffer(start,count),"SourceIdentifier: " .. buffer(start,count):le_uint())
+      sourceIdentifier = buffer(start,count):le_uint()
+      subtree:add(buffer(start,count),"SourceIdentifier: " .. sourceIdentifier)
       start = start + count
       
       count = 4
-      subtree:add(buffer(start,count),"FrameFormat:  " .. buffer(start,count):string())
+      frameFormat = buffer(start,count):string()      
+      subtree:add(buffer(start,count),"FrameFormat:  " .. frameFormat)
       start = start + count
       
       count = 2
-      subtree:add(buffer(start,count),"FrameWidth: " .. buffer(start,count):le_uint())
+      local frameWidth = buffer(start,count):le_uint()
+      subtree:add(buffer(start,count),"FrameWidth: " .. frameWidth)
       start = start + count
 
       count = 2
-      subtree:add(buffer(start,count),"FrameHeight: " .. buffer(start,count):le_uint())
+      local frameHeight = buffer(start,count):le_uint()
+      subtree:add(buffer(start,count),"FrameHeight: " .. frameHeight)
       start = start + count
 
       count = 2
       subtree:add(buffer(start,count),"BuferSize: " .. buffer(start,count):le_uint())
       bufferSize = buffer(start,count):le_uint()
       start = start + count
+      
+       pinfo.cols.info:append (string.format("SORCE:%d %s %dx%d",
+       sourceIdentifier,
+       frameFormat,
+       frameWidth,
+       frameHeight))
+
 
 --      Remainder of packet is frame data, or part of frame data
     end
    -- MSEX/RqSt ------------------------------------------------------------------
     if buffer(22,4):string() == "RqSt" then
+      pinfo.cols.info:append ("RqSt >") -- info
+
       start = 26
       
       count = 2
-      subtree:add(buffer(start,count),"SourceIdentifier: " .. buffer(start,count):le_uint())
+      local sourceIdentifier = buffer(start,count):le_uint()
+      subtree:add(buffer(start,count),"SourceIdentifier: " .. sourceIdentifier)
       start = start + count
       
       count = 4
-      subtree:add(buffer(start,count),"FrameFormat:  " .. buffer(start,count):string())
+      local frameFormat = buffer(start,count):string()
+      subtree:add(buffer(start,count),"FrameFormat:  " .. frameFormat)
       start = start + count
       
       count = 2
-      subtree:add(buffer(start,count),"FrameWidth: " .. buffer(start,count):le_uint())
+      local frameWidth = buffer(start,count):le_uint()
+      subtree:add(buffer(start,count),"FrameWidth: " .. frameWidth)
       start = start + count
 
       count = 2
-      subtree:add(buffer(start,count),"FrameHeight: " .. buffer(start,count):le_uint())
+      local frameHeight = buffer(start,count):le_uint()
+      subtree:add(buffer(start,count),"FrameHeight: " .. frameHeight)
       start = start + count
 
       count = 1
-      subtree:add(buffer(start,count),"FPS: " .. buffer(start,count):le_uint())
+      local fps = buffer(start,count):le_uint()
+      subtree:add(buffer(start,count),"FPS: " .. fps)
       start = start + count
 
       count = 1
-      subtree:add(buffer(start,count),"Timeout: " .. buffer(start,count):le_uint())
+      local timeout = buffer(start,count):le_uint()
+      subtree:add(buffer(start,count),"Timeout: " .. timeout)
       start = start + count
+      
+      --info
+       pinfo.cols.info:append (string.format("SORCE:%d %s %dx%d@%d %dSec",
+       sourceIdentifier,
+       frameFormat,
+       frameWidth,
+       frameHeight,
+       fps,
+       timeout))
     end
 
     -- MSEX/LSta ------------------------------------------------------------------
     if buffer(22,4):string() == "LSta" then
+      pinfo.cols.info:append ("LSta >") -- info
+
+    
       start = 26
+    
       count = 1
       layercount = buffer(start,count):uint() 
       subtree:add(buffer(start,count), "Layer Count: " .. layercount)
@@ -246,7 +288,9 @@ local str=""
         str = string.sub(str,1,-3)
         
         LSta[i]:add(buffer(start,count), "Layer Status: ".."("..current_stat..") "..str)
+      --info
       end
+      pinfo.cols.info:append (string.format("LAYER COUNT:%d",layercount))
     end
     
   end
