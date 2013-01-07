@@ -7,14 +7,12 @@ CITP is used in the event and entertainment industries to allow lighting console
 Installing the plugin (Windows)
 -------------------------------
 * Exit Wireshark
-*Copy citp.lua to your wireshark user profiles directory:
->``Vista/Windows7/8:``
+*Copy citp.lua to your wireshark user profiles directory
 
-C:\Users\<username>\AppData\Roaming\Wireshark
+  Vista/Windows7/8:``C:\Users\<username>\AppData\Roaming\Wireshark``
 
-```XP/2000```
+  XP/2000:``C:\Documents and Settings\<username>\Application Data\Wireshark``
 
-C:\Documents and Settings\<username>\Application Data\Wireshark
 * Edit or create ``C:\Program Files\Wireshark\init.lua`` or ``C:\Program Files (x86)\Wireshark\init.lua`` and change ``disable_lua = true`` to ``disable_lua = false``
 
 
