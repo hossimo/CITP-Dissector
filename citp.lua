@@ -336,6 +336,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
         lib_tree:add(buffer(start,count),string.format("Element Count: %d", buffer(start,count):uint()))        
         start = start + count
       end
+      pinfo.cols.info:append (string.format("Elements :%d",element_count))
 
     end
 
