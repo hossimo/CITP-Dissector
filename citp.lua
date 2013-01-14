@@ -6,13 +6,6 @@ function citp_proto.dissector(buffer,pinfo,tree)
   pinfo.cols.protocol = "CITP"
   local subtree = tree:add(citp_proto,buffer(),"CITP ("..string.len(buffer():string())..")")
 
-  --[[
-  if citp_id == "CITP" then  -- DEBUG: skip packet unless ID = "CITP"
-  else
-    return
-  end
-  ]]
-
   subtree = subtree:add(buffer(0,20),"Descriptor Header (" .. string.len(buffer(0,20):string())..")")
   subtree:add(buffer(0,4), "ID: " .. citp_id)
   citp_version = string.format("%d.%d",buffer (4,1):uint(),buffer (5,1):uint())
@@ -21,11 +14,18 @@ function citp_proto.dissector(buffer,pinfo,tree)
     str=" (Ignored)"
   end
   subtree:add(buffer(6,2), "Request/Response ID: " .. buffer(6,2):le_uint())
-  subtree:add(buffer(8,4), "Message Size: " .. buffer(8,4):le_uint())
+  message_size = buffer(8,4):le_uint()
+  subtree:add(buffer(8,4), "Message Size: " .. message_size)
   subtree:add(buffer(12,2), "Message Part Count: " .. buffer(12,2):le_uint())
   subtree:add(buffer(14,2), "Message Part: " .. buffer(14,2):le_uint())
   subtree:add(buffer(16,4), "Content Type: " .. buffer(16,4):string())
   pinfo.cols.info = string.format("CITP %s >",citp_version) -- info
+  
+  -- Calculate message size and reassemble PDUs if needed.
+  if message_size > buffer:len() then
+    pinfo.desegment_len = message_size - buffer:len()
+    return
+  end
 
     -- PINF ------------------------------------------------------------------------
     -- Peer Information layer
@@ -335,10 +335,6 @@ function citp_proto.dissector(buffer,pinfo,tree)
         count = 1
         lib_tree:add(buffer(start,count),string.format("Element Count: %d", buffer(start,count):uint()))        
         start = start + count
-        pinfo.desegment_len=DESEGMENT_ONE_MORE_SEGMENT
-        pinfo.desegment_offset = pdu_start
-        --if i == 2 then break end
-
       end
 
     end
