@@ -1,13 +1,22 @@
 citp_proto = Proto("citp","CITP")
 
 function citp_proto.dissector(buffer,pinfo,tree)
-local str=""
+
+  citp_id = buffer (0,4):string()
   pinfo.cols.protocol = "CITP"
-  pinfo.cols.info = "CITP >" -- info
   local subtree = tree:add(citp_proto,buffer(),"CITP ("..string.len(buffer():string())..")")
+
+  --[[
+  if citp_id == "CITP" then  -- DEBUG: skip packet unless ID = "CITP"
+  else
+    return
+  end
+  ]]
+
   subtree = subtree:add(buffer(0,20),"Descriptor Header (" .. string.len(buffer(0,20):string())..")")
-  subtree:add(buffer(0,4), "ID: " .. buffer (0,4):string())
-  subtree:add(buffer(4,2), "Version: " .. buffer (4,1):uint() .. "." .. buffer(5,1):uint())
+  subtree:add(buffer(0,4), "ID: " .. citp_id)
+  citp_version = string.format("%d.%d",buffer (4,1):uint(),buffer (5,1):uint())
+  subtree:add(buffer(4,2), "Version: " .. citp_version)
   if buffer(6,2):uint() == 0 then
     str=" (Ignored)"
   end
@@ -16,8 +25,10 @@ local str=""
   subtree:add(buffer(12,2), "Message Part Count: " .. buffer(12,2):le_uint())
   subtree:add(buffer(14,2), "Message Part: " .. buffer(14,2):le_uint())
   subtree:add(buffer(16,4), "Content Type: " .. buffer(16,4):string())
+  pinfo.cols.info = string.format("CITP %s >",citp_version) -- info
 
     -- PINF ------------------------------------------------------------------------
+    -- Peer Information layer
   if buffer(16,4):string() == "PINF" then
     pinfo.cols.info:append ("PINF >")   -- info
     subtree:add(buffer(20),"PINF ("..string.len(buffer(20):string())..")")
@@ -48,7 +59,6 @@ local str=""
  
     -- MSEX ------------------------------------------------------------------------
   if buffer (16,4):string() == "MSEX" then
-    pinfo.cols.info:append ("MSEX >") -- info
     local str = ""
     
     local ct = {
@@ -58,14 +68,20 @@ local str=""
       LSta = "Layer Status Message",
       StFr = "Stream Frame message",
       RqSt = "Request Stream message",
+      GEIn = "Get Element Information message",
+      MEIn = "Media Element Information message",
+      GETh = "Get Element Thumbnail message",
+      EThn = "Element Thumbnail message",
+      ELIn = "Element Library Information message",
     }
     str = ct[buffer(22,4):string()] or "(Unknown)"
-    
+        
     subtree = subtree:add(buffer(20), "MSEX ("..string.len(buffer(20):string())..")")
     version = buffer (20,1):uint() .. "." .. buffer(21,1):uint()
     subtree:add(buffer(20,2), "Version: " .. version)  
     subtree:add(buffer(22,4), "Content Type: " .. buffer(22,4):string().." - "..str)
     
+    pinfo.cols.info:append ("MSEX ".. version .." >") -- info
     -- MSEX/CInf --------------------------------------------------------------------
     if buffer(22,4):string() == "CInf" then
       pinfo.cols.info:append ("CInf >") -- info
@@ -74,8 +90,9 @@ local str=""
     end
 
     -- MSEX/SInf 1.0 or 1.1 ---------------------------------------------------------
+    -- Server Information message
     if (buffer(22,4):string() == "SInf") and (version <= "1.1") then
-      pinfo.cols.info:append ("SInf"..version.." >") -- info
+      pinfo.cols.info:append ("SInf >") -- info
       start = 26
       count = 0
       str=""
@@ -141,7 +158,7 @@ local str=""
       start = start + count
 
       count = 2
-      subtree:add(buffer(start,count),"BuferSize: " .. buffer(start,count):le_uint())
+      subtree:add(buffer(start,count),"BuferSize: " .. buffer(start,count):uint())
       bufferSize = buffer(start,count):le_uint()
       start = start + count
       
@@ -198,6 +215,138 @@ local str=""
        frameHeight,
        fps,
        timeout))
+    end
+    
+   -- MSEX/EThn ------------------------------------------------------------------
+   -- Element Thumbnail message
+    if (buffer(22,4):string() == "EThn") and (version == "1.1") then
+      pinfo.cols.info:append ("EThn >") -- info
+      start = 26
+    
+      count = 1
+      local libraryType = buffer(start,count):uint()
+      if (libraryType == 1) then libraryType_name = "Media" end
+      if (libraryType == 2) then libraryType_name = "Effects"end
+      subtree:add(buffer(start,count),string.format("Library Type: (%d) %s",libraryType,libraryType_name))
+      start = start + count
+      
+      count = 4
+      libraryId = string.format("%d,%d,%d,%d", 
+        buffer(start,1):uint(),
+        buffer(start+1,1):uint(),
+        buffer(start+2,1):uint(),
+        buffer(start+3,1):uint()
+        )
+      subtree:add(buffer(start,count),string.format("LibraryId: %s", libraryId))
+      start = start + count
+
+      count = 1
+      element = buffer(start,count):uint()
+      subtree:add(buffer(start,count),string.format("Element: %d", element))
+      start = start + count
+
+
+      count = 4
+      subtree:add(buffer(start,count),string.format("Thumbnail Format: %s", buffer(start,count):string()))
+      start = start + count
+
+      count = 2
+      width = buffer(start,count):le_uint()
+      start = start + count
+
+      count = 2
+      height = buffer(start,count):le_uint()
+      start = start + count
+
+      subtree:add(buffer(start,count),string.format("Dims: %dx%d",width,height ))
+
+      count = 2
+      subtree:add(buffer(start,count),string.format("Thumbs Buffer: %d", buffer(start,count):le_uint()))
+      start = start + count
+
+      --      Remainder of packet is frame data, or part of frame data
+      subtree:add(buffer(start),"Data")
+            
+      --info
+      pinfo.cols.info:append (string.format("LibraryID:%s Element:%s",
+       libraryId,
+       element))
+    end
+
+   -- MSEX 1.0/ELIn ------------------------------------------------------------------
+   -- Element Library Information message
+    if (buffer(22,4):string() == "ELIn") and (version == "1.0") then
+
+    end
+    
+   -- MSEX 1.1/ELIn ------------------------------------------------------------------
+   -- Element Library Information message
+    if (buffer(22,4):string() == "ELIn") and (version == "1.1") then
+      pinfo.cols.info:append ("ELIn >") -- info
+      start = 26
+    
+      count = 1
+      library_tupe = buffer(start,count):uint()
+      subtree:add(buffer(start,count),string.format("LibraryType: %d", library_tupe))
+      start = start + count
+
+      count = 1
+      element_count = buffer(start,count):uint()
+      element_tree = subtree:add(buffer(start,count),string.format("Element Count: %d", element_count))
+      start = start + count
+      
+      i = element_count
+
+      for i = 1, element_count do
+        count = 4
+        libraryId = string.format("%d,%d,%d,%d", 
+          buffer(start,1):uint(),
+          buffer(start+1,1):uint(),
+          buffer(start+2,1):uint(),
+          buffer(start+3,1):uint()
+        )
+        lib_tree = element_tree:add(buffer(start,count),string.format("LibraryId: %s", libraryId))
+        start = start + count
+
+        count = 1
+        lib_tree:add(buffer(start,count),string.format("DMX Min: %s", buffer(start,count):uint()))        
+        start = start + count
+
+        count = 1
+        lib_tree:add(buffer(start,count),string.format("DMX Max: %s", buffer(start,count):uint()))        
+        start = start + count
+        
+        count = 0
+        str=""
+       
+        while buffer(start + count,1):uint() ~= 0 do
+          str = str .. buffer(start+count,1):string()
+          count = count + 2
+        end
+          count = count + 2
+
+        lib_tree:add(buffer(start, count), string.format("Name: %s", str))
+        start = start + count
+
+        count = 1
+        lib_tree:add(buffer(start,count),string.format("Sub Librarys: %d", buffer(start,count):uint()))        
+        start = start + count
+
+        count = 1
+        lib_tree:add(buffer(start,count),string.format("Element Count: %d", buffer(start,count):uint()))        
+        start = start + count
+        pinfo.desegment_len=DESEGMENT_ONE_MORE_SEGMENT
+        pinfo.desegment_offset = pdu_start
+        --if i == 2 then break end
+
+      end
+
+    end
+
+   -- MSEX 1.2/ELIn ------------------------------------------------------------------
+   -- Element Library Information message
+    if (buffer(22,4):string() == "ELIn") and (version == "1.2") then
+
     end
 
     -- MSEX/LSta ------------------------------------------------------------------
@@ -288,16 +437,14 @@ local str=""
         str = string.sub(str,1,-3)
         
         LSta[i]:add(buffer(start,count), "Layer Status: ".."("..current_stat..") "..str)
+      end -- end for : Layer Count
       --info
-      end
       pinfo.cols.info:append (string.format("LAYER COUNT:%d",layercount))
-    end
+    end -- end if : MSEX/LSta
     
-  end
-  
-  
+  end -- end if : MSEX
 
-end
+end -- end function citp_proto.dissector
 
 udp_table = DissectorTable.get("udp.port")
 udp_table:add(4809,citp_proto)
