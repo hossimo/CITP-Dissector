@@ -524,14 +524,12 @@ function citp_proto.dissector(buffer,pinfo,tree)
           MEIn[i]:add(buffer(start,count),string.format("FPS: %d", buffer(start,count):uint()))
           start = start + count
           
-          pinfo.cols.info:append (string.format("MEIn LibraryID: %s Elements: %d>",libraryId ,element_count))
         end
 
         
       
-      -- info
-      -- Disabled until I figure out how to make sure it only shows up for one PDU
-      -- pinfo.cols.info:append (string.format("MEIn >"))
+        -- info
+        pinfo.cols.info:append (string.format("MEIn LibraryID: %s Elements: %d",libraryId ,element_count))
       end -- end if: MSEX/MEIn
 
     end -- end if : MSEX
