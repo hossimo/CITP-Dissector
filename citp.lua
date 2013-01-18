@@ -119,6 +119,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
         dmx:add(buffer(start, count), "Layer ".. i .." DMX (proto/net/uni/chan.): " .. buffer(start):string())
         start = start + count
       end
+      pinfo.cols.info:append (string.format("Server: %s Layers: %d", str, layercount))
     end
     -- MSEX/SInf 1.2 --------------------------------------------------------------
     if (buffer(22,4):string() == "SInf") and (version >= "1.2") then
@@ -217,7 +218,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
        timeout))
     end
     
-   -- MSEX/EThn ------------------------------------------------------------------
+   -- MSEX 1.1/EThn ------------------------------------------------------------------
    -- Element Thumbnail message
     if (buffer(22,4):string() == "EThn") and (version == "1.1") then
       pinfo.cols.info:append ("EThn >") -- info
@@ -258,7 +259,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
       height = buffer(start,count):le_uint()
       start = start + count
 
-      subtree:add(buffer(start,count),string.format("Dims: %dx%d",width,height ))
+      subtree:add(buffer(start,count),string.format("Dimensions: %dx%d", width, height))
 
       count = 2
       subtree:add(buffer(start,count),string.format("Thumbs Buffer: %d", buffer(start,count):le_uint()))
@@ -336,7 +337,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
         lib_tree:add(buffer(start,count),string.format("Element Count: %d", buffer(start,count):uint()))        
         start = start + count
       end
-      pinfo.cols.info:append (string.format("Elements :%d",element_count))
+      pinfo.cols.info:append (string.format("Elements: %d",element_count))
 
     end
 
@@ -438,8 +439,102 @@ function citp_proto.dissector(buffer,pinfo,tree)
       --info
       pinfo.cols.info:append (string.format("LAYER COUNT:%d",layercount))
     end -- end if : MSEX/LSta
+
+    -- MSEX/MEIn1.0 ------------------------------------------------------------------
+    if (buffer(22,4):string() == "MEIn") and (version == "1.0") then
+      -- info
+      pinfo.cols.info:append (string.format("MEIn >"))
+      pinfo.cols.info:append ("-NYI-")
+
+    end -- end if: MSEX/MEIn
+
+    -- MSEX/MEIn1.1 ------------------------------------------------------------------
+    if (buffer(22,4):string() == "MEIn") and (version == "1.1") then
+      start = 26
     
-  end -- end if : MSEX
+      count = 4
+        libraryId = string.format("%d,%d,%d,%d", 
+          buffer(start,1):uint(),
+          buffer(start+1,1):uint(),
+          buffer(start+2,1):uint(),
+          buffer(start+3,1):uint()
+        )
+        subtree:add(buffer(start,count),string.format("LibraryId: %s", libraryId))
+        start = start + count
+        
+        count = 1
+        element_count = buffer(start,count):uint()
+        MEIn = subtree:add(buffer(start,count),string.format("Element Count: %d", element_count))
+        start = start + count
+
+        MEIn = {}
+        for i = 1, element_count do
+          count = 1
+          MEIn[i] = subtree:add(buffer(start,count),string.format("Number: %d", buffer(start,count):uint()))
+          start = start + count
+
+          count = 1
+          MEIn[i]:add(buffer(start,count),string.format("DMX Start: %d", buffer(start,count):uint()))
+          start = start + count
+
+          count = 1
+          MEIn[i]:add(buffer(start,count),string.format("DMX End: %d", buffer(start,count):uint()))
+          start = start + count
+          
+          count = 0
+          str=""
+          while buffer(start + count,1):uint() ~= 0 do --THIS IS BROKEN!!!!
+            str = str .. buffer(start+count,1):string()
+            count = count + 2
+          end
+          count = count +2
+          MEIn[i]:add(buffer(start,count),string.format("Name: %s", str))
+          start = start + count --debug
+          
+          -- This is a hack because le_uint64() returns the bigendian result
+          count = 8
+          epoch = 0
+          mult = 1
+          
+          for j=0, count - 1 do
+            epoch = epoch + (buffer(start+j, 1):uint() * mult)
+            --debug
+            --MEIn[i]:add(buffer(start,count),string.format("%02d: %sx%d=%s", j, buffer(start+j, 1):uint(), mult, buffer(start+j, 1):uint()*mult))  
+            mult = mult * 256
+          end
+          
+          -- The time OSX displays and the epoch caluclation is off by a number of minues.
+          -- epoch and os.date seem to jive, but OSX time is wrong?
+          MEIn[i]:add(buffer(start,count),string.format("Time: %s (epoch:%d)", os.date("%c", epoch), epoch))
+                    
+          start = start + count
+
+          -- Calculate Dimensions
+          count = 2
+          width = buffer(start,count):le_uint()
+          height = buffer(start+2,count):le_uint()
+          MEIn[i]:add(buffer(start,4),string.format("Dimensions: %dx%d", width, height))
+          start = start + 4
+          
+          count = 4
+          MEIn[i]:add(buffer(start,count),string.format("Length (Frames): %d", buffer(start,count):le_uint()))
+          start = start + count
+
+          count = 1
+          MEIn[i]:add(buffer(start,count),string.format("FPS: %d", buffer(start,count):uint()))
+          start = start + count
+          
+          pinfo.cols.info:append (string.format("MEIn LibraryID: %s Elements: %d>",libraryId ,element_count))
+        end
+
+        
+      
+      -- info
+      -- Disabled until I figure out how to make sure it only shows up for one PDU
+      -- pinfo.cols.info:append (string.format("MEIn >"))
+      end -- end if: MSEX/MEIn
+
+    end -- end if : MSEX
 
 end -- end function citp_proto.dissector
 
