@@ -568,8 +568,9 @@ function citp_proto.dissector(buffer,pinfo,tree)
         pinfo.cols.info:append (string.format("GEIn >"))
       end -- end if: MSEX/MEIn
 
+
       -- MSEX/GEIn1.1 ------------------------------------------------------------------
-      -- Get Element Information message 1.0
+      -- Get Element Information message 1.1
       if (buffer(22,4):string() == "GEIn") and (version == "1.1") then
         start = 26
       
@@ -580,29 +581,29 @@ function citp_proto.dissector(buffer,pinfo,tree)
 
         count = 4
         libraryId = string.format("%d,%d,%d,%d", 
-          buffer(start,1):uint(),
+          buffer(start  ,1):uint(),
           buffer(start+1,1):uint(),
           buffer(start+2,1):uint(),
-          buffer(start+3,1):uint()
-        )
+          buffer(start+3,1):uint())
         subtree:add(buffer(start,count),string.format("LibraryId: %s", libraryId))
         start = start + count
 
         count = 1
-        local elementCount = buffer(start,count):le_uint()
-        subtree:add(buffer(start,count),"Element Count: " .. elementCount)
+        elementCount = buffer(start,count):le_uint()
+        subtree:add(buffer(start,count),"ElementCount: " .. elementCount)
         start = start + count
 
-        count = 1
-        local elementNumbers = buffer(start,count):le_uint()
-        subtree:add(buffer(start,count),"Element Numbers: " .. elementNumbers)
-        start = start + count
-
-
+        if (elementCount > 0) then
+          count = 1
+          for i = 1, elementCount do
+            elements:add(buffer(start,count),"Element Number: %d" .. buffer(start,count):le_uint())
+            start = start + count
+          end
+        end
 
         -- info
-        pinfo.cols.info:append (string.format("GEIn >"))
-      end -- end if: MSEX/MEIn
+        pinfo.cols.info:append (string.format("GEIn %s>", libraryId))
+      end -- end if: MSEX/GEIn1.1
 
 
     end -- end if : MSEX
