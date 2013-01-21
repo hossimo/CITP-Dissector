@@ -83,6 +83,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
     
     pinfo.cols.info:append ("MSEX ".. version .." >") -- info
     -- MSEX/CInf --------------------------------------------------------------------
+    -- Client Information message
     if buffer(22,4):string() == "CInf" then
       pinfo.cols.info:append ("CInf >") -- info
       subtree:add(buffer(26,1), "Supported Version Count: ".. buffer(26,1):uint())
@@ -122,18 +123,21 @@ function citp_proto.dissector(buffer,pinfo,tree)
       pinfo.cols.info:append (string.format("Server: %s Layers: %d", str, layercount))
     end
     -- MSEX/SInf 1.2 --------------------------------------------------------------
+    -- Server Information message
     if (buffer(22,4):string() == "SInf") and (version >= "1.2") then
       pinfo.cols.info:append ("SInf"..version.." >") -- info
       subtree:add("Version - NYI -")
     end
 
     -- MSEX/Nack ------------------------------------------------------------------
+    -- Negative Acknowledge message
     if buffer(22,4):string() == "Nack" then
       pinfo.cols.info:append ("Nack >") -- info
       subtree:add(buffer(22),"Received Content: " .. buffer(22):string())
     end
 
    -- MSEX/StFr ------------------------------------------------------------------
+   -- Stream Frame message
     if buffer(22,4):string() == "StFr" then
       pinfo.cols.info:append ("StFr >") -- info
       start = 26
@@ -168,11 +172,10 @@ function citp_proto.dissector(buffer,pinfo,tree)
        frameFormat,
        frameWidth,
        frameHeight))
-
-
---      Remainder of packet is frame data, or part of frame data
     end
+    
    -- MSEX/RqSt ------------------------------------------------------------------
+   -- Request Stream message
     if buffer(22,4):string() == "RqSt" then
       pinfo.cols.info:append ("RqSt >") -- info
 
@@ -348,6 +351,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
     end
 
     -- MSEX/LSta ------------------------------------------------------------------
+    -- Layer Status message
     if buffer(22,4):string() == "LSta" then
       pinfo.cols.info:append ("LSta >") -- info
 
@@ -441,6 +445,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
     end -- end if : MSEX/LSta
 
     -- MSEX/MEIn1.0 ------------------------------------------------------------------
+    -- Media Element Information message 1.0
     if (buffer(22,4):string() == "MEIn") and (version == "1.0") then
       -- info
       pinfo.cols.info:append (string.format("MEIn >"))
@@ -449,6 +454,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
     end -- end if: MSEX/MEIn
 
     -- MSEX/MEIn1.1 ------------------------------------------------------------------
+    -- Media Element Information message 1.1
     if (buffer(22,4):string() == "MEIn") and (version == "1.1") then
       start = 26
     
@@ -531,6 +537,73 @@ function citp_proto.dissector(buffer,pinfo,tree)
         -- info
         pinfo.cols.info:append (string.format("MEIn LibraryID: %s Elements: %d",libraryId ,element_count))
       end -- end if: MSEX/MEIn
+      
+      -- MSEX/GEIn1.0 ------------------------------------------------------------------
+      -- Get Element Information message 1.0
+      if (buffer(22,4):string() == "GEIn") and (version == "1.0") then
+        start = 26
+      
+        count = 1
+        local libraryType = buffer(start,count):le_uint()
+        subtree:add(buffer(start,count),"LibraryType: " .. libraryType)
+        start = start + count
+
+        count = 1
+        local libraryNumber = buffer(start,count):le_uint()
+        subtree:add(buffer(start,count),"LibraryNumber: " .. libraryNumber)
+        start = start + count
+
+        count = 1
+        local elementCount = buffer(start,count):le_uint()
+        subtree:add(buffer(start,count),"Element Count: " .. elementCount)
+        start = start + count
+
+        count = 1
+        local elementNumbers = buffer(start,count):le_uint()
+        subtree:add(buffer(start,count),"Element Numbers: " .. elementNumbers)
+        start = start + count
+
+
+        -- info
+        pinfo.cols.info:append (string.format("GEIn >"))
+      end -- end if: MSEX/MEIn
+
+      -- MSEX/GEIn1.1 ------------------------------------------------------------------
+      -- Get Element Information message 1.0
+      if (buffer(22,4):string() == "GEIn") and (version == "1.1") then
+        start = 26
+      
+        count = 1
+        local libraryType = buffer(start,count):le_uint()
+        subtree:add(buffer(start,count),"LibraryType: " .. libraryType)
+        start = start + count
+
+        count = 4
+        libraryId = string.format("%d,%d,%d,%d", 
+          buffer(start,1):uint(),
+          buffer(start+1,1):uint(),
+          buffer(start+2,1):uint(),
+          buffer(start+3,1):uint()
+        )
+        subtree:add(buffer(start,count),string.format("LibraryId: %s", libraryId))
+        start = start + count
+
+        count = 1
+        local elementCount = buffer(start,count):le_uint()
+        subtree:add(buffer(start,count),"Element Count: " .. elementCount)
+        start = start + count
+
+        count = 1
+        local elementNumbers = buffer(start,count):le_uint()
+        subtree:add(buffer(start,count),"Element Numbers: " .. elementNumbers)
+        start = start + count
+
+
+
+        -- info
+        pinfo.cols.info:append (string.format("GEIn >"))
+      end -- end if: MSEX/MEIn
+
 
     end -- end if : MSEX
 
