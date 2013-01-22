@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8' />
+    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
+    <meta name="description" content="Citp-dissector : Wireshark CITP Lua Disector" />
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>Citp-dissector</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/hossimo/CITP-Dissector">View on GitHub</a>
+
+          <h1 id="project_title">Citp-dissector</h1>
+          <h2 id="project_tagline">Wireshark CITP Lua Disector</h2>
+
+            <section id="downloads">
+              <a class="zip_download_link" href="https://github.com/hossimo/CITP-Dissector/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/hossimo/CITP-Dissector/tarball/master">Download this project as a tar.gz file</a>
+            </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h1>CITP-Dissector</h1>
+
+<p>Wireshark CITP Lua Disector implimrnts the CITP (Controller Interface Transport Protocol) as described at <a href="http://www.citp-protocol.org/">http://www.citp-protocol.org/</a>.
+CITP is used in the event and entertainment industries to allow lighting consoles, media servers and visualizers to interchange operation information with an open protocol. CITP utilizes <code>TCP</code>, <code>UDP:4809</code> and the multicast address <code>224.0.0.180</code> in order to operate.</p>
+
+<h2>Installing the plugin (Windows)</h2>
+
+<ul>
+<li>Exit Wireshark</li>
+<li>Copy citp.lua to your wireshark user profiles directory</li>
+</ul><p><strong>Vista / Windows 7 / 8</strong> <code>C:\Users\&lt;username&gt;\AppData\Roaming\Wireshark\plugins</code></p>
+
+<p><strong>XP/2000</strong> <code>C:\Documents and Settings\&lt;username&gt;\Application Data\Wireshark\plugins</code></p>
+
+<ul>
+<li>Edit or create <code>C:\Program Files\Wireshark\init.lua</code> or <code>C:\Program Files (x86)\Wireshark\init.lua</code> and change <code>disable_lua = true</code> to <code>disable_lua = false</code>
+</li>
+</ul><h2>Installing the plugin (OSX / Linux / Unix)</h2>
+
+<ul>
+<li>Quit Wireshark</li>
+<li>Copy <code>citp.lua</code> into <code>~/.wireshark/plugins</code>
+</li>
+<li>Edit or create <code>/etc/wireshark/init.lua</code> and change <code>disable_lua = true</code> to <code>disable_lua = false</code>
+</li>
+</ul><h1>Currently Implemented</h1>
+
+<ul>
+<li>CITP
+
+<ul>
+<li>PINF  Peer Information Layer</li>
+</ul>
+</li>
+<li>MSEX
+
+<ul>
+<li>CInf  Client Information Message</li>
+<li>SInf  Server Information Message  1.0 or 1.1</li>
+<li>Nack  Negative Acknowledge Message</li>
+<li>LSta  Layer Status Message</li>
+<li>StFr  Stream Frame message</li>
+<li>RqSt  Request Stream message</li>
+<li>GEIn  Get Element Information message</li>
+<li>MEIn  Media Element Information message</li>
+<li>GETh  Get Element Thumbnail message</li>
+<li>EThn  Element Thumbnail message 1.1</li>
+<li>ELIn  Element Library Information message 1.1 (1.0 and 1.2 NYI)</li>
+</ul>
+</li>
+</ul>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">Citp-dissector maintained by <a href="https://github.com/hossimo">hossimo</a></p>
+        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+    
+
+  </body>
+</html>
