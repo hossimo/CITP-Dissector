@@ -1,10 +1,22 @@
 citp_proto = Proto("citp","CITP")
 
--- revision 12-01-21
--- $Id$
+-- revision 12-01-24
+
+-- UDP and TCP Dissector Tables
+udp_table = DissectorTable.get("udp.port")
+tcp_table = DissectorTable.get("tcp.port")
+
+-- Globals
+listeningport = 0
+found_ports = {}
+win = TextWindow.new("Found CITP Ports")
+
+win:append("PLOC ports")
+
 
 
 function citp_proto.dissector(buffer,pinfo,tree)
+  listeningport = 0
   
   citp_id = buffer (0,4):string()
   pinfo.cols.protocol = "CITP"
@@ -37,13 +49,24 @@ function citp_proto.dissector(buffer,pinfo,tree)
     pinfo.cols.info:append ("PINF >")   -- info
     subtree:add(buffer(20),"PINF ("..string.len(buffer(20):string())..")")
     subtree:add(buffer(20,4), "Content Type: " .. buffer(20,4):string())
+    
+    -- PNam
     if buffer(20,4):string() == "PNam" then
       start = 26
       count = string.find(buffer(start):string(),"\0",1)
       subtree:add(buffer(start, count),"State: ".. buffer(start):string())
     end
+    
+    --PLoc
     if buffer(20,4):string() == "PLoc" then
-      subtree:add(buffer(24,2), "Listeng Port: " .. (buffer(24,2):le_uint()))
+      listeningport = buffer(24,2):le_uint()
+      subtree:add(buffer(24,2), "Listening Port: " .. (listeningport))
+      
+      -- If we listening port is non zero then add to the disector
+      if listeningport then
+        CITP_add_port(listeningport)
+      end
+      listeningport = 0
       
       start = 26
       count = string.find(buffer(start):string(),"\0",1)
@@ -148,26 +171,24 @@ function citp_proto.dissector(buffer,pinfo,tree)
       pinfo.cols.info:append ("StFr >") -- info
       start = 26
       
+      -- Source ID
       count = 2
       sourceIdentifier = buffer(start,count):le_uint()
       subtree:add(buffer(start,count),"SourceIdentifier: " .. sourceIdentifier)
       start = start + count
       
+      -- Thumbs Format
       count = 4
       frameFormat = buffer(start,count):string()      
       subtree:add(buffer(start,count),"FrameFormat:  " .. frameFormat)
       start = start + count
       
-      count = 2
-      local frameWidth = buffer(start,count):le_uint()
-      subtree:add(buffer(start,count),"FrameWidth: " .. frameWidth)
+      -- Dimentions
+      dims, count = MSEX_Dims (buffer, start)
+      subtree:add(buffer(start,count), string.format("Dimensions: %s", dims))
       start = start + count
       
-      count = 2
-      local frameHeight = buffer(start,count):le_uint()
-      subtree:add(buffer(start,count),"FrameHeight: " .. frameHeight)
-      start = start + count
-      
+      -- Buffer Size
       count = 2
       subtree:add(buffer(start,count),"BuferSize: " .. buffer(start,count):uint())
       bufferSize = buffer(start,count):le_uint()
@@ -176,8 +197,8 @@ function citp_proto.dissector(buffer,pinfo,tree)
       pinfo.cols.info:append (string.format("SORCE:%d %s %dx%d",
                                             sourceIdentifier,
                                             frameFormat,
-                                            frameWidth,
-                                            frameHeight))
+                                            dims
+                                            ))
     end
     
     -- MSEX/RqSt ------------------------------------------------------------------
@@ -197,14 +218,9 @@ function citp_proto.dissector(buffer,pinfo,tree)
       subtree:add(buffer(start,count),"FrameFormat:  " .. frameFormat)
       start = start + count
       
-      count = 2
-      local frameWidth = buffer(start,count):le_uint()
-      subtree:add(buffer(start,count),"FrameWidth: " .. frameWidth)
-      start = start + count
-      
-      count = 2
-      local frameHeight = buffer(start,count):le_uint()
-      subtree:add(buffer(start,count),"FrameHeight: " .. frameHeight)
+      -- Dimentions
+      dims, count = MSEX_Dims (buffer, start)
+      subtree:add(buffer(start,count), string.format("Dimensions: %s", dims))
       start = start + count
       
       count = 1
@@ -218,11 +234,10 @@ function citp_proto.dissector(buffer,pinfo,tree)
       start = start + count
       
       --info
-      pinfo.cols.info:append (string.format("SORCE:%d %s %dx%d@%d %dSec",
+      pinfo.cols.info:append (string.format("SORCE:%d %s %s@%d %dSec",
                                             sourceIdentifier,
                                             frameFormat,
-                                            frameWidth,
-                                            frameHeight,
+                                            dims,
                                             fps,
                                             timeout))
     end
@@ -253,17 +268,10 @@ function citp_proto.dissector(buffer,pinfo,tree)
       subtree:add(buffer(start,count),string.format("Thumbnail Format: %s", buffer(start,count):string()))
       start = start + count
       
-      -- Width
-      count = 2
-      width = buffer(start,count):le_uint()
+      -- Dimentions
+      dims, count = MSEX_Dims (buffer, start)
+      subtree:add(buffer(start,count), string.format("Dimensions: %s", dims))
       start = start + count
-      
-      -- Height
-      count = 2
-      height = buffer(start,count):le_uint()
-      start = start + count
-      -- Width x Height
-      subtree:add(buffer(start,count),string.format("Dimensions: %dx%d", width, height))
       
       --Thumb Buffer
       count = 2
@@ -483,7 +491,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
         
         count = 0
         str=""
-        while buffer(start + count,1):uint() ~= 0 do --THIS IS BROKEN!!!!
+        while buffer(start + count,1):uint() ~= 0 do --THIS IS BROKEN!?!?!
           str = str .. buffer(start+count,1):string()
           count = count + 2
         end
@@ -509,12 +517,10 @@ function citp_proto.dissector(buffer,pinfo,tree)
         
         start = start + count
         
-        -- Calculate Dimensions
-        count = 2
-        width = buffer(start,count):le_uint()
-        height = buffer(start+2,count):le_uint()
-        MEIn[i]:add(buffer(start,4),string.format("Dimensions: %dx%d", width, height))
-        start = start + 4
+        -- Dimentions
+        dims, count = MSEX_Dims (buffer, start)
+        subtree:add(buffer(start,count), string.format("Dimensions: %s", dims))
+        start = start + count
         
         count = 4
         MEIn[i]:add(buffer(start,count),string.format("Length (Frames): %d", buffer(start,count):le_uint()))
@@ -669,16 +675,9 @@ function citp_proto.dissector(buffer,pinfo,tree)
       subtree:add(buffer(start,count),string.format("Thumbnail Format: %s", thumbnailFormat))
       start = start + count
       
-      -- Width
-      count = 2
-      width = buffer(start,count):le_uint()
-      
-      -- Height
-      height = buffer(start+2,count):le_uint()
-      
-      -- Width x Height
-      count = 4
-      subtree:add(buffer(start,count),string.format("Dimensions: %dx%d", width, height))
+      -- Dimentions
+      dims, count = MSEX_Dims (buffer, start)
+      subtree:add(buffer(start,count), string.format("Dimensions: %s", dims))
       start = start + count
       
       -- Thumbnail Flags
@@ -717,10 +716,9 @@ function citp_proto.dissector(buffer,pinfo,tree)
       end
       
       -- info
-      pinfo.cols.info:append (string.format("GELT %s %dx%d Count: %d",
+      pinfo.cols.info:append (string.format("GELT %s %s Count: %d",
                                             thumbnailFormat,
-                                            width,
-                                            height,
+                                            dims,
                                             LibraryCount)
                               )
     end -- end if: MSEX/GELT1.0
@@ -736,16 +734,9 @@ function citp_proto.dissector(buffer,pinfo,tree)
       subtree:add(buffer(start,count),string.format("Thumbnail Format: %s", thumbnailFormat))
       start = start + count
       
-      -- Width
-      count = 2
-      width = buffer(start,count):le_uint()
-      
-      -- Height
-      height = buffer(start+2,count):le_uint()
-      
-      -- Width x Height
-      count = 4
-      subtree:add(buffer(start,count),string.format("Dimensions: %dx%d", width, height))
+      -- Dimentions
+      dims, count = MSEX_Dims(buffer, start)
+      subtree:add(buffer(start,count), string.format("Dimensions: %s", str))
       start = start + count
       
       -- Thumbnail Flags
@@ -788,16 +779,33 @@ function citp_proto.dissector(buffer,pinfo,tree)
       -- info
       pinfo.cols.info:append (string.format("GELT %s %dx%d Count: %d",
                                             thumbnailFormat,
-                                            width,
-                                            height,
+                                            dims,
                                             LibraryCount)
                               )
     end -- end if: MSEX/GELT1.1
     
+    -- MSEX/GETh 1.0 & 1.1 -------------------------------------------------------------
+    -- Get Element Get Element Thumbnail message 1.0 & 1.1
+    if (buffer(22,4):string() == "GETh") and (version == "1.0") then
+      start = 26
+      
+      count = 4
+      subtree:add(buffer(start,count), string.format("Thumbnail Format: %s", buffer(start,count):string()))
+      start = start + count
+      
+      str, count = MSEX_Dims (buffer, start)
+      subtree:add(buffer(start,count), string.format("Dimensions: %s", str))
+      start = start + count
+      
+    end -- end if: MSEX/GEThT1.0 & 1.1
     
   end -- end if : MSEX
   
 end -- end function citp_proto.dissector
+
+--
+-- Formatters
+--
 
 -- MSEX_LibraryID formatter
 function MSEX_LibraryID (buffer, start)
@@ -807,6 +815,22 @@ function MSEX_LibraryID (buffer, start)
                       buffer(start+2,1):uint(),
                       buffer(start+3,1):uint()
                       )
+  return str, 4 --string, count
+end
+
+-- MSEX_Dims formatter
+function MSEX_Dims (buffer, start)
+  -- Width
+  count = 2
+  width = buffer(start,count):le_uint()
+  
+  -- Height
+  height = buffer(start+2,count):le_uint()
+  
+  -- Width x Height
+  count = 4
+  str = string.format("%dx%d", width, height)
+  start = start + count
   return str, 4 --string, count
 end
 
@@ -821,9 +845,23 @@ function MSEX_LibraryType (buffer, start)
   return str, 1 -- string, count
 end
 
+-- Add TCP Port
+-- port is based in PINF listen port
+function CITP_add_port (port)
+  if port > 0 then
+    if found_ports [listeningport] then
+    else
+      found_ports [listeningport] = true
+      tcp_table:add (listeningport,citp_proto)
+      win:append(string.format("Added CITP Port: %d\n", listeningport))
+    end
+  end
+end
 
-udp_table = DissectorTable.get("udp.port")
+
+-- always using UDP 4809
 udp_table:add(4809,citp_proto)
 
-tcp_table = DissectorTable.get("tcp.port")
-tcp_table:add(6436,citp_proto)
+
+
+
