@@ -11,7 +11,7 @@ listeningport = 0
 found_ports = {}
 win = TextWindow.new("Found CITP Ports")
 
-win:append("PLOC ports")
+win:append("PLOC ports will be added to this list as they are found:\n\n")
 
 
 
