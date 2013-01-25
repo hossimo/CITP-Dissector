@@ -1,8 +1,6 @@
 CITP-Dissector
 =============
 
-Github page http://hossimo.github.com/CITP-Dissector/
-
 Wireshark CITP Lua Disector implements the CITP (Controller Interface Transport Protocol) as described at http://www.citp-protocol.org/.
 
 CITP is used in the event and entertainment industries to allow lighting consoles, media servers and visualizers to interchange operation information with an open protocol. CITP utilizes `TCP:on various ports`, `UDP:4809` and the multicast address `224.0.0.180` in order to operate.
@@ -11,6 +9,7 @@ The disector listens to CITP/PINF/PLoc/ListeningTCPPort to dynamicly add the pos
 
 Installing the plugin (Windows)
 -------------------------------
+* Download the Zip near the top of the page.
 * Exit Wireshark
 * Copy citp.lua to your wireshark user profiles directory
 
@@ -23,6 +22,7 @@ Installing the plugin (Windows)
 
 Installing the plugin (OSX / Linux / Unix)
 ------------------------------------------
+* Download the Zip near the top of the page.
 * Quit Wireshark
 * Copy ``citp.lua`` into ``~/.wireshark/plugins``
 * Edit or create ``/etc/wireshark/init.lua`` and change ``disable_lua = true`` to ``disable_lua = false``
