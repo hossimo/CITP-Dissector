@@ -9,14 +9,19 @@ tcp_table = DissectorTable.get("tcp.port")
 -- Globals
 listeningport = 0
 found_ports = {}
-win = TextWindow.new("Found CITP Ports")
 
-win:append("PLOC ports will be added to this list as they are found:\n\n")
-
+--win:append("PLOC ports will be added to this list as they are found:\n\n")
 
 
-function citp_proto.dissector(buffer,pinfo,tree)
+function citp_proto.dissector(buffer,pinfo,tree)  
+  
   listeningport = 0
+  
+  -- Look for really short packets
+  --if buffer:len() <= 14 then
+  --  pinfo.desegment_len = 22 - buffer:len()
+  --  return
+  --end
   
   citp_id = buffer (0,4):string()
   pinfo.cols.protocol = "CITP"
@@ -34,7 +39,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
   subtree:add(buffer(8,4), "Message Size: " .. message_size)
   subtree:add(buffer(12,2), "Message Part Count: " .. buffer(12,2):le_uint())
   subtree:add(buffer(14,2), "Message Part: " .. buffer(14,2):le_uint())
-  subtree:add(buffer(16,4), "Content Type: " .. buffer(16,4):string())
+  subtree = subtree:add(buffer(16,4), "Content Type: " .. buffer(16,4):string() .." (".. string.len(buffer(20):string()) .. ")")
   pinfo.cols.info = string.format("CITP %s >",citp_version) -- info
   
   -- Calculate message size and reassemble PDUs if needed.
@@ -62,7 +67,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
       listeningport = buffer(24,2):le_uint()
       subtree:add(buffer(24,2), "Listening Port: " .. (listeningport))
       
-      -- If we listening port is non zero then add to the disector
+      -- If we listening port is non zero then add to the dissector
       if listeningport then
         CITP_add_port(listeningport)
       end
@@ -105,7 +110,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
     }
     str = ct[buffer(22,4):string()] or "(Unknown)"
     
-    subtree = subtree:add(buffer(20), "MSEX ("..string.len(buffer(20):string())..")")
+    subtree:add(buffer(20), "Length: "..string.len(buffer(20):string()))
     version = buffer (20,1):uint() .. "." .. buffer(21,1):uint()
     subtree:add(buffer(20,2), "Version: " .. version)  
     subtree:add(buffer(22,4), "Content Type: " .. buffer(22,4):string().." - "..str)
@@ -306,6 +311,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
       subtree:add(buffer(start,count),string.format("Library Type: %s",str))
       start = start + count
       
+      -- Element Count
       count = 1
       element_count = buffer(start,count):uint()
       element_tree = subtree:add(buffer(start,count),string.format("Element Count: %d", element_count))
@@ -664,9 +670,9 @@ function citp_proto.dissector(buffer,pinfo,tree)
       pinfo.cols.info:append (string.format("GELI LibraryID: %s Count: (%d) %s", str, libraryCount, txt))
     end -- end if: MSEX/GELI1.1
     
-    -- MSEX/GELT 1.0 ------------------------------------------------------------------
+    -- MSEX/GELT 1.0 & 1.1 ------------------------------------------------------------------
     -- Get Element Library Thumbnail message 1.0
-    if (buffer(22,4):string() == "GELT") and (version == "1.0") then
+    if (buffer(22,4):string() == "GELT") and ((version == "1.0") or (version == "1.1")) then
       start = 26
       
       -- Thumbnail Format
@@ -706,12 +712,22 @@ function citp_proto.dissector(buffer,pinfo,tree)
       elements = subtree:add(buffer(start, count), string.format("Library Count: %d", LibraryCount))
       start = start + count
       
-      -- Library Numbers
       if (LibraryCount > 0) then
-        count = 1
-        for i = 1, LibraryCount do
-          elements:add(buffer(start,count),"Library Numbers: %d" .. buffer(start,count):le_uint())
-          start = start + count
+        if (version == "1.0") then
+          -- Library Numbers
+          count = 1
+          for i = 1, LibraryCount do
+            elements:add(buffer(start,count),"Library Numbers: %d" .. buffer(start,count):le_uint())
+            start = start + count
+          end
+          else
+          -- LibraryID
+          count = 1
+          for i = 1, LibraryCount do
+            str, count = MSEX_LibraryID (buffer, start)
+            elements:add(buffer(start,count),string.format("Library ID: %s", str))
+            start = start + count
+          end
         end
       end
       
@@ -721,22 +737,22 @@ function citp_proto.dissector(buffer,pinfo,tree)
                                             dims,
                                             LibraryCount)
                               )
-    end -- end if: MSEX/GELT1.0
+    end -- end if: MSEX/GELT1.0 / 1.1
     
-    -- MSEX/GELT 1.1 ------------------------------------------------------------------
-    -- Get Element Library Thumbnail message 1.1
-    if (buffer(22,4):string() == "GELT") and (version == "1.1") then
+    
+    -- MSEX/GETh 1.0 & 1.1 -------------------------------------------------------------
+    -- Get Element Get Element Thumbnail message 1.0 & 1.1
+    if (buffer(22,4):string() == "GETh") and ((version == "1.0") or (version == "1.1")) then
       start = 26
       
       -- Thumbnail Format
       count = 4
-      thumbnailFormat = buffer(start,count):string()
-      subtree:add(buffer(start,count),string.format("Thumbnail Format: %s", thumbnailFormat))
+      subtree:add(buffer(start,count), string.format("Thumbnail Format: %s", buffer(start,count):string()))
       start = start + count
       
-      -- Dimentions
-      dims, count = MSEX_Dims(buffer, start)
-      subtree:add(buffer(start,count), string.format("Dimensions: %s", str))
+      -- Width x Height
+      dims, count = MSEX_Dims (buffer, start)
+      subtree:add(buffer(start,count), string.format("Dimensions: %s", dims))
       start = start + count
       
       -- Thumbnail Flags
@@ -751,57 +767,59 @@ function citp_proto.dissector(buffer,pinfo,tree)
         str = "None, "
       end        
       str = string.sub(str,1,-3) -- strip off the final ", "
-      
       subtree:add(buffer(start,count), "Thumbnail Flags: ".."("..current_stat..") "..str)
+      start = start +1
       
       -- Library Type
       str, count = MSEX_LibraryType (buffer, start)
       subtree:add(buffer(start,count),string.format("Library Type: %s",str))
       start = start + count
       
-      -- LibraryCount
-      count = 1
-      LibraryCount = buffer(start, count):uint()
-      elements = subtree:add(buffer(start, count), string.format("Library Count: %d", LibraryCount))
-      start = start + count
-      
-      -- Library Numbers
-      if (LibraryCount > 0) then
+      if version == "1.0" then
+        -- Library Numbers
         count = 1
-        for i = 1, LibraryCount do
+        subtree:add(buffer(start,count),"Library Numbers: %d" .. buffer(start,count):le_uint())
+        start = start + count
+        -- TODO
+        
+        elseif version == "1.1" then
+        -- LibraryID
+        LibraryID, count = MSEX_LibraryID (buffer, start)
+        subtree:add(buffer(start,count),string.format("Library ID: %s", LibraryID))
+        start = start + count
+        
+        -- Element Count
+        count = 1
+        element_count = buffer(start,count):le_uint()
+        element_tree = subtree:add(buffer(start,count),string.format("Element Count: %d", element_count))
+        start = start + count
+        
+        -- Element Numbers
+        for i = 1, element_count do
           -- LibraryID
-          
-          elements:add(buffer(start,count),string.format("Library Number: %s", buffer(start, count):uint()))
+          element = buffer(start,count):uint()
+          element_tree:add(buffer(start,count),string.format("Element Number: %s", element))
           start = start + count
         end
+        -- info
+        pinfo.cols.info:append (string.format("GETh %s %s LibraryID: %s Count: %d",
+                                              thumbnailFormat,
+                                              dims,
+                                              LibraryID, 
+                                              element_count)
+                                )
+
       end
-      
-      -- info
-      pinfo.cols.info:append (string.format("GELT %s %dx%d Count: %d",
-                                            thumbnailFormat,
-                                            dims,
-                                            LibraryCount)
-                              )
-    end -- end if: MSEX/GELT1.1
-    
-    -- MSEX/GETh 1.0 & 1.1 -------------------------------------------------------------
-    -- Get Element Get Element Thumbnail message 1.0 & 1.1
-    if (buffer(22,4):string() == "GETh") and (version == "1.0") then
-      start = 26
-      
-      count = 4
-      subtree:add(buffer(start,count), string.format("Thumbnail Format: %s", buffer(start,count):string()))
-      start = start + count
-      
-      str, count = MSEX_Dims (buffer, start)
-      subtree:add(buffer(start,count), string.format("Dimensions: %s", str))
-      start = start + count
       
     end -- end if: MSEX/GEThT1.0 & 1.1
     
   end -- end if : MSEX
   
 end -- end function citp_proto.dissector
+
+
+
+
 
 --
 -- Formatters
@@ -849,11 +867,18 @@ end
 -- port is based in PINF listen port
 function CITP_add_port (port)
   if port > 0 then
-    if found_ports [listeningport] then
-    else
-      found_ports [listeningport] = true
-      tcp_table:add (listeningport,citp_proto)
-      win:append(string.format("Added CITP Port: %d\n", listeningport))
+    if found_ports [port] then
+      else
+      found_ports [port] = true
+      tcp_table:add (port,citp_proto)
+      win_log = string.format("Added CITP Port: %d\n", port)
+      
+      if win == nil then
+        win = TextWindow.new("CITP Log")
+      end
+      
+      win:append(win_log)
+      win_log = ""
     end
   end
 end
@@ -861,6 +886,10 @@ end
 
 -- always using UDP 4809
 udp_table:add(4809,citp_proto)
+
+--Debug, Add Mbox
+CITP_add_port(6436)
+
 
 
 
