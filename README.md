@@ -28,12 +28,12 @@ Installing the plugin (OSX / Linux / Unix)
 * Edit or create ``/etc/wireshark/init.lua`` and change ``disable_lua = true`` to ``disable_lua = false``
 
 
-Currently Implemented (Many still a work in progress)
+Currently Implemented (still a work in progress)
 =====================================================
 * CITP
  * PINF  Peer Information Layer
 * MSEX
-  * CInf  Client Information Message
+ * CInf  Client Information Message
  * ELIn  Element Library Information message 1.1 (1.0 and 1.2 NYI)
  * EThn  Element Thumbnail message 1.1
  * GEIn  Get Element Information message
@@ -46,3 +46,9 @@ Currently Implemented (Many still a work in progress)
  * RqSt  Request Stream message
  * SInf  Server Information Message  1.0 or 1.1
  * StFr  Stream Frame message
+
+TCP Ports
+=========
+Because CITP can use any random TCP port, the dissector does not assign a port by default, but dynamicly based on UDP:PINF:PLoc:ListeningTCPPort fields. Until a PINF packet is processed Wiershark does not know what TCP port for to use for CITP.
+
+To manually add a TCP port in *Tools > Lua > Evaluate* enter the following: ``CITP_add_port(####)`` where ``####`` is the port number that you would like to watch then press *Evaluate* ``e.g. CITP_add_port(6463)``
