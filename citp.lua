@@ -9,6 +9,7 @@ tcp_table = DissectorTable.get("tcp.port")
 -- Globals
 listeningport = 0
 found_ports = {}
+win = nil
 
 --win:append("PLOC ports will be added to this list as they are found:\n\n")
 
@@ -821,9 +822,9 @@ end -- end function citp_proto.dissector
 
 
 
---
+-- ---------------------------------------------------------------------
 -- Formatters
---
+-- ---------------------------------------------------------------------
 
 -- MSEX_LibraryID formatter
 function MSEX_LibraryID (buffer, start)
@@ -867,16 +868,14 @@ end
 -- port is based in PINF listen port
 function CITP_add_port (port)
   if port > 0 then
-    if found_ports [port] then
-      else
+    if not found_ports [port] then
       found_ports [port] = true
       tcp_table:add (port,citp_proto)
       win_log = string.format("Added CITP Port: %d\n", port)
-      
       if win == nil then
         win = TextWindow.new("CITP Log")
       end
-      
+
       win:append(win_log)
       win_log = ""
     end
@@ -888,7 +887,8 @@ end
 udp_table:add(4809,citp_proto)
 
 --Debug, Add Mbox
-CITP_add_port(6436)
+--CITP_add_port(6436) -- PRG Mbox
+--CITP_add_port(4011) -- Arkaos Media Master
 
 
 
