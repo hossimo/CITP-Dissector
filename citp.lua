@@ -250,7 +250,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
     
     -- MSEX 1.1/EThn ------------------------------------------------------------------
     -- Element Thumbnail message
-    if (buffer(22,4):string() == "EThn") and (version == "1.1") then
+    if (buffer(22,4):string() == "EThn") and (version <= "1.2") then
       start = 26
       
       -- Library Type
@@ -258,10 +258,17 @@ function citp_proto.dissector(buffer,pinfo,tree)
       subtree:add(buffer(start,count),string.format("Library Type: %s",str))
       start = start + count
       
-      -- LibraryID
-      str, count = MSEX_LibraryID(buffer, start)
-      subtree:add(buffer(start,count),string.format("LibraryId: %s", str))
-      start = start + count
+      if version == "1.0" then
+        count = 1
+        libraryNumber = buffer(start,count):le_uint()
+        subtree:add(buffer(start,count),"LibraryNumber: " .. libraryNumber)
+        start = start + count
+      elseif version <= "1.2" then -- There is no definition for 1.2
+        -- LibraryID
+        libraryNumber, count = MSEX_LibraryID(buffer, start)
+        subtree:add(buffer(start,count),string.format("LibraryId: %s", libraryNumber))
+        start = start + count
+      end
       
       -- Element
       count = 1
@@ -287,12 +294,13 @@ function citp_proto.dissector(buffer,pinfo,tree)
       -- Remainder of packet is frame data, or part of frame data
       subtree:add(buffer(start),"Data")
       
-      --info
-      pinfo.cols.info:append (string.format("ETHn LibraryID:%s Element:%s",
-                                            str,
-                                            element
-                                            )
-                              )
+        --info
+        pinfo.cols.info:append (string.format("ETHn LibraryID:%s Element:%d",
+                                              libraryNumber,
+                                              element
+                                              )
+                                )
+
     end -- end EThn 1.1
     
     -- MSEX 1.0/ELIn ------------------------------------------------------------------
