@@ -248,7 +248,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
                                             timeout))
     end
     
-    -- MSEX 1.1/EThn ------------------------------------------------------------------
+    -- MSEX 1.0 - 1.2/EThn ------------------------------------------------------------------
     -- Element Thumbnail message
     if (buffer(22,4):string() == "EThn") and (version <= "1.2") then
       start = 26
@@ -301,7 +301,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
                                               )
                                 )
 
-    end -- end EThn 1.1
+    end -- end EThn 1.0 - 1.2
     
     -- MSEX 1.0/ELIn ------------------------------------------------------------------
     -- Element Library Information message
@@ -355,7 +355,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
         start = start + count
         
         count = 1
-        lib_tree:add(buffer(start,count),string.format("Sub Librarys: %d", buffer(start,count):uint()))        
+        lib_tree:add(buffer(start,count),string.format("Sub Libraries %d", buffer(start,count):uint()))        
         start = start + count
         
         count = 1
