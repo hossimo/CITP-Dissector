@@ -11,18 +11,14 @@ listeningport = 0
 found_ports = {}
 win = nil
 
---win:append("PLOC ports will be added to this list as they are found:\n\n")
-
-
 function citp_proto.dissector(buffer,pinfo,tree)  
-  
   listeningport = 0
   
-  -- Look for really short packets
-  --if buffer:len() <= 14 then
-  --  pinfo.desegment_len = 22 - buffer:len()
-  --  return
-  --end
+  -- Check for buffer lengths less the CITP Header (20 Bytes)
+  if buffer:len() < 20 then  -- We don't have enough to figure out message length
+    pinfo.desegment_len = 20 - buffer:len() -- get more data.
+    return
+  end
   
   citp_id = buffer (0,4):string()
   pinfo.cols.protocol = "CITP"
