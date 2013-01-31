@@ -51,4 +51,4 @@ TCP Ports
 =========
 Because CITP can use any random TCP port, the dissector does not assign a port by default, but dynamicly based on UDP:PINF:PLoc:ListeningTCPPort fields. Until a PINF packet is processed Wiershark does not know what TCP port for to use for CITP.
 
-To manually add a TCP port in *Tools > Lua > Evaluate* enter the following: ``CITP_add_port(####)`` where ``####`` is the port number that you would like to watch then press *Evaluate* ``e.g. CITP_add_port(6463)``
+To manually add a TCP port in *Tools > Lua > Evaluate* enter the following: ``CITP_add_port(####)`` where ``####`` is the port number that you would like to watch then press *Evaluate* e.g. ``CITP_add_port(6463)``
