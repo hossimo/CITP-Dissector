@@ -8,11 +8,32 @@ tcp_table = DissectorTable.get("tcp.port")
 
 -- Globals
 listeningport = 0
+start = 0
+count = 0
 found_ports = {}
 win = nil
 
+ct = {
+  MSEX = "Media Server Extensions",
+  CInf = "Client Information Message",
+  SInf = "Server Information Message",
+  Nack = "Negative Acknowledge Message",
+  LSta = "Layer Status Message",
+  StFr = "Stream Frame message",
+  RqSt = "Request Stream message",
+  GEIn = "Get Element Information message",
+  MEIn = "Media Element Information message",
+  GETh = "Get Element Thumbnail message",
+  EThn = "Element Thumbnail message",
+  ELIn = "Element Library Information message",
+  GELI = "Get Element Library Information message",
+  GELT = "Get Element Library Thumbnail message",
+}
+
+
 function citp_proto.dissector(buffer,pinfo,tree)  
   listeningport = 0
+  start = 0
   
   -- Check for buffer lengths less the CITP Header (20 Bytes)
   if buffer:len() < 20 then  -- We don't have enough to figure out message length
@@ -20,14 +41,17 @@ function citp_proto.dissector(buffer,pinfo,tree)
     return
   end
   
-  citp_id = buffer (0,4):string()
-  pinfo.cols.protocol = "CITP"
-  local subtree = tree:add(citp_proto,buffer(),"CITP ("..string.len(buffer():string())..")")
+  count = 4
   
-  subtree = subtree:add(buffer(0,20),"Descriptor Header (" .. string.len(buffer(0,20):string())..")")
-  subtree:add(buffer(0,4), "ID: " .. citp_id)
-  citp_version = string.format("%d.%d",buffer (4,1):uint(),buffer (5,1):uint())
-  subtree:add(buffer(4,2), "Version: " .. citp_version)
+  cookie = buffer (start,count):string()
+  pinfo.cols.protocol = cookie
+  subtree = tree:add(citp_proto,buffer(), string.format("Controller Interface Transport Protocol,  Length: %d Header: 22",buffer:len()))
+  start = start + count
+  
+  count = 1
+  citp_version = string.format("%d.%d",buffer (start,count):le_uint(),buffer (start+1,count):le_uint())
+  subtree:add(buffer(start,count+1), "Version: " .. citp_version)
+
   if buffer(6,2):uint() == 0 then
     str=" (Ignored)"
   end
@@ -36,7 +60,9 @@ function citp_proto.dissector(buffer,pinfo,tree)
   subtree:add(buffer(8,4), "Message Size: " .. message_size)
   subtree:add(buffer(12,2), "Message Part Count: " .. buffer(12,2):le_uint())
   subtree:add(buffer(14,2), "Message Part: " .. buffer(14,2):le_uint())
-  subtree = subtree:add(buffer(16,4), "Content Type: " .. buffer(16,4):string() .." (".. string.len(buffer(20):string()) .. ")")
+  
+  str = ct[buffer(16,4):string()] or "(Unknown)"
+  subtree = subtree:add(buffer(16,4), "Content Type: " .. buffer(16,4):string() .." - ".. str)
   pinfo.cols.info = string.format("CITP %s >",citp_version) -- info
   
   -- Calculate message size and reassemble PDUs if needed.
@@ -90,24 +116,9 @@ function citp_proto.dissector(buffer,pinfo,tree)
   if buffer (16,4):string() == "MSEX" then
     local str = ""
     
-    local ct = {
-      CInf = "Client Information Message",
-      SInf = "Server Information Message",
-      Nack = "Negative Acknowledge Message",
-      LSta = "Layer Status Message",
-      StFr = "Stream Frame message",
-      RqSt = "Request Stream message",
-      GEIn = "Get Element Information message",
-      MEIn = "Media Element Information message",
-      GETh = "Get Element Thumbnail message",
-      EThn = "Element Thumbnail message",
-      ELIn = "Element Library Information message",
-      GELI = "Get Element Library Information message",
-      GELT = "Get Element Library Thumbnail message",
-    }
     str = ct[buffer(22,4):string()] or "(Unknown)"
     
-    subtree:add(buffer(20), "Length: "..string.len(buffer(20):string()))
+    subtree:add(buffer(20), string.format("Length: %s",buffer:len()-20))
     version = buffer (20,1):uint() .. "." .. buffer(21,1):uint()
     subtree:add(buffer(20,2), "Version: " .. version)  
     subtree:add(buffer(22,4), "Content Type: " .. buffer(22,4):string().." - "..str)
