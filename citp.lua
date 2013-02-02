@@ -477,7 +477,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
       start = 26
       
       -- LibraryID
-      str, count = MSEX_LibraryID(buffer, start)
+      libraryID, count = MSEX_LibraryID(buffer, start)
       subtree:add(buffer(start,count),string.format("LibraryId: %s", str))
       start = start + count
       
@@ -546,7 +546,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
       
       
       -- info
-      pinfo.cols.info:append (string.format("MEIn LibraryID: %s Elements: %d",str ,element_count))
+      pinfo.cols.info:append (string.format("MEIn LibraryID: %s Elements: %d",libraryID ,element_count))
     end -- end if: MSEX/MEIn
     
     -- MSEX/GEIn1.0 ------------------------------------------------------------------
@@ -659,7 +659,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
       if libraryCount == 0 then
         txt = "All"
         else
-        txt = " "
+        txt = ""
       end
       elements = subtree:add(buffer(start,count),string.format("Library Count: (%d) %s", libraryCount, txt))
       start = start + count
@@ -672,7 +672,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
         end
       end
       -- info
-      pinfo.cols.info:append (string.format("GELI LibraryID: %s Count: (%d) %s", str, libraryCount, txt))
+      pinfo.cols.info:append (string.format("GELI LibraryID: %s Count: %s (%d)", str, txt, libraryCount))
     end -- end if: MSEX/GELI1.1
     
     -- MSEX/GELT 1.0 & 1.1 ------------------------------------------------------------------
