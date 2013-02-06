@@ -14,7 +14,12 @@ found_ports = {}
 win = nil
 
 ct = {
+  -- CITP
   MSEX = "Media Server Extensions",
+  PINF = "Peer Information layer",
+  PNam = "Peer Name message",
+  PLoc = "Peer Location message",
+  -- MSEX
   CInf = "Client Information Message",
   SInf = "Server Information Message",
   Nack = "Negative Acknowledge Message",
@@ -28,6 +33,8 @@ ct = {
   ELIn = "Element Library Information message",
   GELI = "Get Element Library Information message",
   GELT = "Get Element Library Thumbnail message",
+  GVSr = "GetVideoSources",
+  VSrc = "Video Sources"
 }
 
 
@@ -52,9 +59,6 @@ function citp_proto.dissector(buffer,pinfo,tree)
   citp_version = string.format("%d.%d",buffer (start,count):le_uint(),buffer (start+1,count):le_uint())
   subtree:add(buffer(start,count+1), "Version: " .. citp_version)
 
-  if buffer(6,2):uint() == 0 then
-    str=" (Ignored)"
-  end
   subtree:add(buffer(6,2), "Request/Response ID: " .. buffer(6,2):le_uint())
   message_size = buffer(8,4):le_uint()
   subtree:add(buffer(8,4), "Message Size: " .. message_size)
@@ -62,7 +66,9 @@ function citp_proto.dissector(buffer,pinfo,tree)
   subtree:add(buffer(14,2), "Message Part: " .. buffer(14,2):le_uint())
   
   str = ct[buffer(16,4):string()] or "(Unknown)"
-  subtree = subtree:add(buffer(16,4), "Content Type: " .. buffer(16,4):string() .." - ".. str)
+  subtree = subtree:add(buffer(16,4), string.format("Content Type: %s - %s, Length: %d",buffer(16,4):string(),
+                                                                            str,
+                                                                            string.len(buffer(20):string())))
   pinfo.cols.info = string.format("CITP %s >",citp_version) -- info
   
   -- Calculate message size and reassemble PDUs if needed.
@@ -75,8 +81,8 @@ function citp_proto.dissector(buffer,pinfo,tree)
   -- Peer Information layer
   if buffer(16,4):string() == "PINF" then
     pinfo.cols.info:append ("PINF >")   -- info
-    subtree:add(buffer(20),"PINF ("..string.len(buffer(20):string())..")")
-    subtree:add(buffer(20,4), "Content Type: " .. buffer(20,4):string())
+    str = ct[buffer(20,4):string()] or "(Unknown)"
+    subtree:add(buffer(20,4), "Content Type: " .. buffer(20,4):string() .. " - " ..str)
     
     -- PNam
     if buffer(20,4):string() == "PNam" then
@@ -132,11 +138,20 @@ function citp_proto.dissector(buffer,pinfo,tree)
       subtree:add(buffer(27,2), "Supports -NYI-: ".. buffer(27,1))
     end
     
+    -- MSEX/SInf 1.2 --------------------------------------------------------------
+    -- Server Information message
+    if (buffer(22,4):string() == "SInf") and (version <= "1.2") then
+      pinfo.cols.info:append ("SInf"..version.." >") -- info
+      subtree:add("Version - NYI -")
+    end
+    
     -- MSEX/SInf 1.0 or 1.1 ---------------------------------------------------------
     -- Server Information message
     if (buffer(22,4):string() == "SInf") and (version <= "1.1") then
       pinfo.cols.info:append ("SInf >") -- info
       start = 26
+    
+      -- Product Name (ASCII)
       count = 0
       str=""
       while buffer(start+count,1):uint() ~= 0 do
@@ -163,12 +178,6 @@ function citp_proto.dissector(buffer,pinfo,tree)
         start = start + count
       end
       pinfo.cols.info:append (string.format("Server: %s Layers: %d", str, layercount))
-    end
-    -- MSEX/SInf 1.2 --------------------------------------------------------------
-    -- Server Information message
-    if (buffer(22,4):string() == "SInf") and (version >= "1.2") then
-      pinfo.cols.info:append ("SInf"..version.." >") -- info
-      subtree:add("Version - NYI -")
     end
     
     -- MSEX/Nack ------------------------------------------------------------------
@@ -207,7 +216,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
       bufferSize = buffer(start,count):le_uint()
       start = start + count
       
-      pinfo.cols.info:append (string.format("SORCE:%d %s %dx%d",
+      pinfo.cols.info:append (string.format("SORCE:%d %s %s",
                                             sourceIdentifier,
                                             frameFormat,
                                             dims
@@ -221,11 +230,13 @@ function citp_proto.dissector(buffer,pinfo,tree)
       
       start = 26
       
+      -- Source ID
       count = 2
       local sourceIdentifier = buffer(start,count):le_uint()
       subtree:add(buffer(start,count),"SourceIdentifier: " .. sourceIdentifier)
       start = start + count
       
+      -- Frame Format
       count = 4
       local frameFormat = buffer(start,count):string()
       subtree:add(buffer(start,count),"FrameFormat:  " .. frameFormat)
@@ -236,11 +247,13 @@ function citp_proto.dissector(buffer,pinfo,tree)
       subtree:add(buffer(start,count), string.format("Dimensions: %s", dims))
       start = start + count
       
+      -- FPS
       count = 1
       local fps = buffer(start,count):le_uint()
       subtree:add(buffer(start,count),"FPS: " .. fps)
       start = start + count
       
+      -- Timeout
       count = 1
       local timeout = buffer(start,count):le_uint()
       subtree:add(buffer(start,count),"Timeout: " .. timeout)
@@ -257,7 +270,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
     
     -- MSEX 1.0 - 1.2/EThn ------------------------------------------------------------------
     -- Element Thumbnail message
-    if (buffer(22,4):string() == "EThn") and (version <= "1.2") then
+    if (buffer(22,4):string() == "EThn") and (version <= "1.1") then
       start = 26
       
       -- Library Type
@@ -313,7 +326,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
     -- MSEX 1.0/ELIn ------------------------------------------------------------------
     -- Element Library Information message
     if (buffer(22,4):string() == "ELIn") and (version == "1.0") then
-      
+      subtree:add("-NYI-")
     end
     
     -- MSEX 1.1/ELIn ------------------------------------------------------------------
@@ -763,7 +776,8 @@ function citp_proto.dissector(buffer,pinfo,tree)
       
       -- Thumbnail Format
       count = 4
-      subtree:add(buffer(start,count), string.format("Thumbnail Format: %s", buffer(start,count):string()))
+      thumbnailFormat = buffer(start,count):string()
+      subtree:add(buffer(start,count), string.format("Thumbnail Format: %s", thumbnailFormat))
       start = start + count
       
       -- Width x Height
@@ -829,6 +843,84 @@ function citp_proto.dissector(buffer,pinfo,tree)
       
     end -- end if: MSEX/GEThT1.0 & 1.1
     
+    -- MSEX/GVSr -------------------------------------------------------------
+    -- GetVideoSources
+    if (buffer(22,4):string() == "GVSr")then
+        pinfo.cols.info:append (string.format("GVSr"))
+    end -- end if: MSEX/GVSr
+
+    -- MSEX/VSrc -------------------------------------------------------------
+    -- Video Sources
+    if (buffer(22,4):string() == "VSrc")then
+      start = 26
+      
+      -- Source Count
+      count = 2
+      sourceCount = buffer(start,count):le_uint()
+      subtree:add(buffer(start,count), string.format("Source Count: %d", sourceCount))
+      start = start + count
+      
+      -- Source Info
+       source = {}
+      for i = 1, sourceCount do
+        -- SourceID
+        count = 2
+        sourceID = buffer(start,count):le_uint()
+        source[i] = subtree:add(buffer(start,count), string.format("SourceID: %d", sourceID))
+        start = start + count
+        
+        -- Source Name
+        str, count = ucs2ascii(start, buffer) -- convert the usc2 to faux ASCII
+        source[i]:add(buffer(start,count), string.format("Name: %s", str))
+        start = start + count
+        
+        -- Physical Output
+        count = 1
+        if buffer(start,count):le_uint() < 255 then
+          str = buffer(start,count):le_uint()
+        else
+          str = "(NONE)"
+        end
+        source[i]:add(buffer(start,count), string.format("Physical Out: %s",str))
+        start = start + count
+
+        -- Layer Number
+        count = 1
+        if buffer(start,count):le_uint() < 255 then
+          str = buffer(start,count):le_uint()
+        else
+          str = "(NONE)"
+        end
+        source[i]:add(buffer(start,count), string.format("Layer Number: %s",str))
+        start = start + count
+
+        -- Flags
+        count = 2
+        str = ""
+        current_stat = buffer(start,count):le_uint()
+      
+        if bit.band(current_stat,00000001) > 0 then
+          str = str .. "Without effects, "
+        end
+        if current_stat == 0 then
+          str = "None, "
+        end        
+      str = string.sub(str,1,-3) -- strip off the final ", "
+      
+      source[i]:add(buffer(start,count), string.format("Flags: %s",str))
+      start = start + count
+      
+      -- Width x Height
+      dim, count = MSEX_Dims (buffer, start)
+      source[i]:add(buffer(start,count), string.format("Dimensions: %s",dim)) 
+      start = start + count
+      
+
+      end
+      
+      pinfo.cols.info:append (string.format("VSrc"))
+    end -- end if: MSEX/VSrc
+    
   end -- end if : MSEX
   
 end -- end function citp_proto.dissector
@@ -840,6 +932,19 @@ end -- end function citp_proto.dissector
 -- ---------------------------------------------------------------------
 -- Formatters
 -- ---------------------------------------------------------------------
+
+-- u2 to ascii
+function ucs2ascii(start, buffer)
+  count = 0
+  str=""
+  while buffer(start+count,1):uint() ~= 0 do
+    str = str .. buffer(start+count,1):string()
+    count = count + 2
+  end
+  count = count + 2
+
+  return str, count
+end
 
 -- MSEX_LibraryID formatter
 function MSEX_LibraryID (buffer, start)
