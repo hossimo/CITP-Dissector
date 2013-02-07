@@ -33,12 +33,20 @@
       <section id="main_content" class="inner">
         <h1>CITP-Dissector</h1>
 
-<p>Wireshark CITP Lua Disector implimrnts the CITP (Controller Interface Transport Protocol) as described at <a href="http://www.citp-protocol.org/">http://www.citp-protocol.org/</a>.
-CITP is used in the event and entertainment industries to allow lighting consoles, media servers and visualizers to interchange operation information with an open protocol. CITP utilizes <code>TCP</code>, <code>UDP:4809</code> and the multicast address <code>224.0.0.180</code> in order to operate.</p>
+<p>Wireshark CITP Lua Disector implements the CITP (Controller Interface Transport Protocol) as described at <a href="http://www.citp-protocol.org/">http://www.citp-protocol.org/</a>.</p>
+
+<blockquote>
+<p>CITP is used in the event and entertainment industries to allow lighting consoles, media servers and visualizers to interchange operation information with an open protocol.</p>
+</blockquote>
+
+<p>CITP utilizes <code>TCP:on various ports</code>, <code>UDP:4809</code> and the multicast address <code>224.0.0.180</code> in order to operate.</p>
+
+<p>The disector listens to CITP/PINF/PLoc/ListeningTCPPort to dynamicly add the posted port to the CITP disector.</p>
 
 <h2>Installing the plugin (Windows)</h2>
 
 <ul>
+<li>Download the Zip near the top of the page.</li>
 <li>Exit Wireshark</li>
 <li>Copy citp.lua to your wireshark user profiles directory</li>
 </ul><p><strong>Vista / Windows 7 / 8</strong> <code>C:\Users\&lt;username&gt;\AppData\Roaming\Wireshark\plugins</code></p>
@@ -51,12 +59,13 @@ CITP is used in the event and entertainment industries to allow lighting console
 </ul><h2>Installing the plugin (OSX / Linux / Unix)</h2>
 
 <ul>
+<li>Download the Zip near the top of the page.</li>
 <li>Quit Wireshark</li>
 <li>Copy <code>citp.lua</code> into <code>~/.wireshark/plugins</code>
 </li>
 <li>Edit or create <code>/etc/wireshark/init.lua</code> and change <code>disable_lua = true</code> to <code>disable_lua = false</code>
 </li>
-</ul><h1>Currently Implemented</h1>
+</ul><h1>Currently Implemented (still a work in progress)</h1>
 
 <ul>
 <li>CITP
@@ -69,19 +78,25 @@ CITP is used in the event and entertainment industries to allow lighting console
 
 <ul>
 <li>CInf  Client Information Message</li>
-<li>SInf  Server Information Message  1.0 or 1.1</li>
-<li>Nack  Negative Acknowledge Message</li>
-<li>LSta  Layer Status Message</li>
-<li>StFr  Stream Frame message</li>
-<li>RqSt  Request Stream message</li>
-<li>GEIn  Get Element Information message</li>
-<li>MEIn  Media Element Information message</li>
-<li>GETh  Get Element Thumbnail message</li>
-<li>EThn  Element Thumbnail message 1.1</li>
 <li>ELIn  Element Library Information message 1.1 (1.0 and 1.2 NYI)</li>
+<li>EThn  Element Thumbnail message 1.1</li>
+<li>GEIn  Get Element Information message</li>
+<li>GELI Get Element Library Information message</li>
+<li>GELT Get Element Library Thumbnail message</li>
+<li>GETh  Get Element Thumbnail message</li>
+<li>LSta  Layer Status Message</li>
+<li>MEIn  Media Element Information message</li>
+<li>Nack  Negative Acknowledge Message</li>
+<li>RqSt  Request Stream message</li>
+<li>SInf  Server Information Message  1.0 or 1.1</li>
+<li>StFr  Stream Frame message</li>
 </ul>
 </li>
-</ul>
+</ul><h1>TCP Ports</h1>
+
+<p>Because CITP can use any random TCP port, the dissector does not assign a port by default, but dynamicly based on UDP:PINF:PLoc:ListeningTCPPort fields. Until a PINF packet is processed Wiershark does not know what TCP port for to use for CITP.</p>
+
+<p>To manually add a TCP port in <em>Tools &gt; Lua &gt; Evaluate</em> enter the following: <code>CITP_add_port(####)</code> where <code>####</code> is the port number that you would like to watch then press <em>Evaluate</em> e.g. <code>CITP_add_port(6463)</code></p>
       </section>
     </div>
 
