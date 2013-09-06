@@ -10,6 +10,7 @@ The disector listens to CITP/PINF/PLoc/ListeningTCPPort to dynamicly add the pos
 Does my copy of Wireshark have Lua Enabled?
 -------------------------------
 In order for this plugin to function in Wireshark make sure your copy has been compiled with Lua by checking in Help -> About Wireshark and looking for the text ``with lua 5.x``.
+
 ![About Dialog](http://wiki.wireshark.org/Lua?action=AttachFile&do=get&target=lua-about.png)
 
 Check [the wireshark wiki](http://wiki.wireshark.org/Lua) for more information
