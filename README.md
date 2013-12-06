@@ -30,7 +30,7 @@ Installing the plugin (Windows)
 
 Installing the plugin (OSX / Linux / Unix)
 ------------------------------------------
-* Download the Zip near the top of the page.
+* [Download citp.lua](https://github.com/hossimo/CITP-Dissector/releases)
 * Quit Wireshark
 * Copy ``citp.lua`` into ``~/.wireshark/plugins``
 * Edit or create ``/etc/wireshark/init.lua`` and change ``disable_lua = true`` to ``disable_lua = false``
