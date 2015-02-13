@@ -212,11 +212,11 @@ function citp_proto.dissector(buffer,pinfo,tree)
       
       -- Buffer Size
       count = 2
-      subtree:add(buffer(start,count),"BuferSize: " .. buffer(start,count):uint())
+      subtree:add(buffer(start,count),"BufferSize: " .. buffer(start,count):uint())
       bufferSize = buffer(start,count):le_uint()
       start = start + count
       
-      pinfo.cols.info:append (string.format("SORCE:%d %s %s",
+      pinfo.cols.info:append (string.format("SOURCE:%d %s %s",
                                             sourceIdentifier,
                                             frameFormat,
                                             dims
@@ -260,7 +260,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
       start = start + count
       
       --info
-      pinfo.cols.info:append (string.format("SORCE:%d %s %s@%d %dSec",
+      pinfo.cols.info:append (string.format("SOURCE:%d %s %s@%d %dSec",
                                             sourceIdentifier,
                                             frameFormat,
                                             dims,
