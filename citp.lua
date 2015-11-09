@@ -1,12 +1,12 @@
 citp_proto = Proto("citp","CITP")
 
--- revision 12-01-24
-
 -- UDP and TCP Dissector Tables
 udp_table = DissectorTable.get("udp.port")
 tcp_table = DissectorTable.get("tcp.port")
 
 -- Globals
+dissector_version = "1.4"
+dissector_date = "2015-11-09"
 listeningport = 0
 start = 0
 count = 0
@@ -996,7 +996,7 @@ function CITP_add_port (port)
       tcp_table:add (port,citp_proto)
       win_log = string.format("Added CITP Port: %d\n", port)
       if win == nil then
-        win = TextWindow.new("CITP Log")
+        win = TextWindow.new("CITP Log "..dissector_version.." ("..dissector_date..")")
       end
 
       win:append(win_log)
