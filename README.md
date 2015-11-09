@@ -69,14 +69,14 @@ Example Capture
 
 Example Capture.pcapng is provided as an example of a converscation between a Media Server (Mbox Designer) and a Console (GrandMA 2). This example file has been reduced down the the key elements and includes the following packets:
 
-* 001       [Mbox] PINF on Multicast Address
-* 002       [GMA2] PINF on Multicast Address
-* 003       [Mbox] Server Information
-* 004       [GMA2] Client Information Message
-* 005       [GMA2] Get Element Library Information for ALL
-* 006 - 007 [Mbox] Element Library Information for 63 Folders
-* 008       [GMA2] Get Element Information for all elements in folder 0
-* 009       [Mbox] Layer Status for 6 Layers
-* 010 - 011 [Mbox] Reply to 008 with 33 elements
-* 012       [GMA2] Get Element Thumbnail for Element 52.
-* 013 - 020 [Mbox] Element Thumbnail for Element 52 (Binary Data)
+    * 001       [Mbox] PINF on Multicast Address
+    * 002       [GMA2] PINF on Multicast Address
+    * 003       [Mbox] Server Information
+    * 004       [GMA2] Client Information Message
+    * 005       [GMA2] Get Element Library Information for ALL
+    * 006 - 007 [Mbox] Element Library Information for 63 Folders
+    * 008       [GMA2] Get Element Information for all elements in folder 0
+    * 009       [Mbox] Layer Status for 6 Layers
+    * 010 - 011 [Mbox] Reply to 008 with 33 elements
+    * 012       [GMA2] Get Element Thumbnail for Element 52.
+    * 013 - 020 [Mbox] Element Thumbnail for Element 52 (Binary Data)
