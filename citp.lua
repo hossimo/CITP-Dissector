@@ -625,15 +625,18 @@ function citp_proto.dissector(buffer,pinfo,tree)
       start = start + count
       
       if (elementCount > 0) then
+        txt = ""
         count = 1
         for i = 1, elementCount do
           elements:add(buffer(start,count),"Element Number: %d" .. buffer(start,count):le_uint())
           start = start + count
         end
+      else
+        txt = "All"
       end
       
       -- info
-      pinfo.cols.info:append (string.format("GEIn LibraryID: %s Count: %d", str, elementCount))
+      pinfo.cols.info:append (string.format("GEIn LibraryID: %s Count: %s (%d)", str, txt, elementCount))
     end -- end if: MSEX/GEIn1.1
     
     -- MSEX/GELI1.0 ------------------------------------------------------------------
