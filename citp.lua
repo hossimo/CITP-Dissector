@@ -996,7 +996,7 @@ function CITP_add_port (port)
       tcp_table:add (port,citp_proto)
       win_log = string.format("Added CITP Port: %d\n", port)
       if win == nil then
-        win = TextWindow.new("CITP Log "..dissector_version.." ("..dissector_date..")")
+        win = TextWindow.new("CITP dissector "..dissector_version.." ("..dissector_date..")")
       end
 
       win:append(win_log)
