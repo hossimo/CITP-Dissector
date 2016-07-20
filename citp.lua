@@ -5,8 +5,8 @@ udp_table = DissectorTable.get("udp.port")
 tcp_table = DissectorTable.get("tcp.port")
 
 -- Globals
-dissector_version = "1.4"
-dissector_date = "2015-11-09"
+dissector_version = "1.5"
+dissector_date = "2016-07-20"
 listeningport = 0
 start = 0
 count = 0
