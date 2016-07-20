@@ -37,6 +37,17 @@ ct = {
   VSrc = "Video Sources"
 }
 
+lt = {
+  "Media (Images & Video)",
+  "Effects",
+  "Cues",
+  "Crossfades",
+  "Masks",
+  "Blend presets",
+  "Effect presets",
+  "Image presets",
+  "3D meshes"
+}
 
 function citp_proto.dissector(buffer,pinfo,tree)  
   listeningport = 0
@@ -88,7 +99,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
     if buffer(20,4):string() == "PNam" then
       start = 26
       count = string.find(buffer(start):string(),"\0",1)
-      subtree:add(buffer(start, count),"State: ".. buffer(start):string())
+      subtree:add(buffer(start, count),"Name: ".. buffer(start):string())
     end
     
     --PLoc
@@ -134,23 +145,28 @@ function citp_proto.dissector(buffer,pinfo,tree)
     -- Client Information message
     if buffer(22,4):string() == "CInf" then
       pinfo.cols.info:append ("CInf >") -- info
-      subtree:add(buffer(26,1), "Supported Version Count: ".. buffer(26,1):uint())
-      subtree:add(buffer(27,2), "Supports -NYI-: ".. buffer(27,1))
+      version_tree = subtree:add(buffer(26,1), "Supported Version Count: ".. buffer(26,1):uint())
+
+      start = 27 
+      for i=1,buffer(26,1):uint() do
+        local supportVersion = buffer(start+1,1):uint() .. "." .. buffer(start,1):uint()
+        version_tree:add(buffer(start,2), "Supports: ".. supportVersion)
+        start = start+2
+      end
     end
     
-    -- MSEX/SInf 1.2 --------------------------------------------------------------
+    -- MSEX/SInf -------------------------------------------------------------------
     -- Server Information message
-    if (buffer(22,4):string() == "SInf") and (version <= "1.2") then
-      pinfo.cols.info:append ("SInf"..version.." >") -- info
-      subtree:add("Version - NYI -")
-    end
-    
-    -- MSEX/SInf 1.0 or 1.1 ---------------------------------------------------------
-    -- Server Information message
-    if (buffer(22,4):string() == "SInf") and (version <= "1.1") then
+    if (buffer(22,4):string() == "SInf") then
       pinfo.cols.info:append ("SInf >") -- info
       start = 26
     
+      if version >= "1.2" then
+        count = 36
+        subtree:add(buffer(start,count), "UUID: ".. buffer(start,count):string())
+        start = start + count
+      end
+
       -- Product Name (ASCII)
       count = 0
       str=""
@@ -164,9 +180,83 @@ function citp_proto.dissector(buffer,pinfo,tree)
       start = start + count
       
       count = 2
-      subtree:add(buffer(start,count), "Version: " .. buffer (start,1):uint() .. "." .. buffer(start+1,1):uint())
+      local productVersion = buffer (start,1):uint() .. "." .. buffer(start+1,1):uint()
+
+      if version >= "1.2" then
+        count = 3
+        productVersion = productVersion .. "." .. buffer(start+2,1)
+      end
+
+      subtree:add(buffer(start,count), "Product Version: " .. productVersion)
       start = start + count
       
+      if version >= "1.2" then
+        subtree:add(buffer(start,1), "Supported Version Count: ".. buffer(start,1):uint())
+
+        start = start + 1 
+        for i=1,buffer(start-1,1):uint() do
+          local supportVersion = buffer(start,1):uint() .. "." .. buffer(start+1,1):uint()
+          subtree:add(buffer(start,2), "Supports: ".. supportVersion)
+          start = start+2
+        end
+
+        supported_types = buffer(start,1)
+
+        if bit.band(supported_types,00000001) > 0 then
+          str = str .. lt[1] .. ", "
+        end
+        if bit.band(supported_types,00000002) > 0 then
+          str = str .. lt[2] .. ", "
+        end
+        if bit.band(supported_types,00000004) > 0 then
+          str = str .. lt[3] .. ", "
+        end
+        if bit.band(supported_types,00000008) > 0 then
+          str = str .. lt[4] .. ", "
+        end
+        if bit.band(supported_types,00000016) > 0 then
+          str = str .. lt[5] .. ", "
+        end
+        if bit.band(supported_types,00000032) > 0 then
+          str = str .. lt[6] .. ", "
+        end
+        if bit.band(supported_types,00000064) > 0 then
+          str = str .. lt[7] .. ", "
+        end
+        if bit.band(supported_types,00000128) > 0 then
+          str = str .. lt[8] .. ", "
+        end
+        if bit.band(supported_types,00000256) > 0 then
+          str = str .. lt[9] .. ", "
+        end
+        if current_stat == "00000000" then
+          str = "None, "
+        end
+        
+        str = string.sub(str,1,-3)
+
+        subtree:add(buffer(start,1), "Supported Library Types: " .. str)
+
+        start = start + 1
+
+        subtree:add(buffer(start,1), "Thumbnail Format Count: ".. buffer(start,1):uint())
+
+        start = start + 1 
+        for i=0,buffer(start-1,1):uint() do
+          subtree:add(buffer(start,4), "Thumbnail Format: ".. buffer(start,4):string())
+          start = start+4
+        end
+
+        subtree:add(buffer(start,1), "Stream Format Count: ".. buffer(start,1):uint())
+
+        start = start + 1 
+        for i=0,buffer(start-1,1):uint() do
+          subtree:add(buffer(start,4), "Stream Format: ".. buffer(start,4):string())
+          start = start+4
+        end
+
+      end -- Version 1.2
+
       count = 1
       layercount = buffer(start, count):uint()
       dmx = subtree:add(buffer(start,count), "Number of Layers: " .. layercount)
@@ -193,6 +283,11 @@ function citp_proto.dissector(buffer,pinfo,tree)
       pinfo.cols.info:append ("StFr >") -- info
       start = 26
       
+      if version >= "1.2" then
+        subtree:add(buffer(start,36), "Media Server UUID: " .. buffer(start,36):string())
+        start = start + 36
+      end
+
       -- Source ID
       count = 2
       sourceIdentifier = buffer(start,count):le_uint()
@@ -323,15 +418,9 @@ function citp_proto.dissector(buffer,pinfo,tree)
 
     end -- end EThn 1.0 - 1.2
     
-    -- MSEX 1.0/ELIn ------------------------------------------------------------------
+    -- MSEX/ELIn ------------------------------------------------------------------
     -- Element Library Information message
-    if (buffer(22,4):string() == "ELIn") and (version == "1.0") then
-      subtree:add("-NYI-")
-    end
-    
-    -- MSEX 1.1/ELIn ------------------------------------------------------------------
-    -- Element Library Information message
-    if (buffer(22,4):string() == "ELIn") and (version == "1.1") then
+    if (buffer(22,4):string() == "ELIn") then
       pinfo.cols.info:append ("ELIn >") -- info
       start = 26
       
@@ -342,16 +431,33 @@ function citp_proto.dissector(buffer,pinfo,tree)
       
       -- Element Count
       count = 1
+
+      if version >= "1.2" then
+        count = 2
+      end
+
       element_count = buffer(start,count):uint()
       element_tree = subtree:add(buffer(start,count),string.format("Element Count: %d", element_count))
       start = start + count
       
       for i = 1, element_count do
-        -- LibraryID
-        str, count = MSEX_LibraryID(buffer, start)
-        lib_tree = element_tree:add(buffer(start,count),string.format("LibraryId: %s", str))
+        if version == "1.0" then
+          -- LibraryNumber
+          count = 1
+          lib_tree = element_tree:add(buffer(start,count),"LibraryNumber: " .. buffer(start,count):uint())
+        else
+          -- LibraryID
+          str, count = MSEX_LibraryID(buffer, start)
+          lib_tree = element_tree:add(buffer(start,count),string.format("LibraryId: %s", str))
+        end
         start = start + count
         
+        if version >= "1.2" then
+          count = 4
+          lib_tree:add(buffer(start,count), "SerialNumber: " .. buffer(start,count):uint())
+          start = start + count
+        end
+
         -- DMX Min
         count = 1
         lib_tree:add(buffer(start,count),string.format("DMX Min: %s", buffer(start,count):uint()))        
@@ -374,21 +480,27 @@ function citp_proto.dissector(buffer,pinfo,tree)
         lib_tree:add(buffer(start, count), string.format("Name: %s", str))
         start = start + count
         
+        if version >= "1.1" then
+          count = 1
+          
+          if version >= "1.2" then
+          	count = 2
+          end
+
+          lib_tree:add(buffer(start,count),string.format("Sub Libraries %d", buffer(start,count):uint()))        
+          start = start + count
+        end
+      
         count = 1
-        lib_tree:add(buffer(start,count),string.format("Sub Libraries %d", buffer(start,count):uint()))        
-        start = start + count
-        
-        count = 1
+
+        if version >= "1.2" then 
+          count = 2
+        end
+
         lib_tree:add(buffer(start,count),string.format("Element Count: %d", buffer(start,count):uint()))        
         start = start + count
       end
       pinfo.cols.info:append (string.format("Elements: %d",element_count))
-      
-    end
-    
-    -- MSEX 1.2/ELIn ------------------------------------------------------------------
-    -- Element Library Information message
-    if (buffer(22,4):string() == "ELIn") and (version == "1.2") then
       
     end
     
@@ -486,26 +598,30 @@ function citp_proto.dissector(buffer,pinfo,tree)
       pinfo.cols.info:append (string.format("LAYER COUNT:%d",layercount))
     end -- end if : MSEX/LSta
     
-    -- MSEX/MEIn1.0 ------------------------------------------------------------------
-    -- Media Element Information message 1.0
-    if (buffer(22,4):string() == "MEIn") and (version == "1.0") then
-      -- info
-      pinfo.cols.info:append (string.format("MEIn >"))
-      pinfo.cols.info:append ("-NYI-")
-      
-    end -- end if: MSEX/MEIn
-    
-    -- MSEX/MEIn1.1 ------------------------------------------------------------------
-    -- Media Element Information message 1.1
-    if (buffer(22,4):string() == "MEIn") and (version == "1.1") then
+    -- MSEX/MEIn ---------------------------------------------------------------------
+    -- Media Element Information message
+    if (buffer(22,4):string() == "MEIn") then
       start = 26
       
-      -- LibraryID
-      libraryID, count = MSEX_LibraryID(buffer, start)
-      subtree:add(buffer(start,count),string.format("LibraryId: %s", str))
-      start = start + count
-      
+      if verison == "1.0" then
+        -- LibraryNumber
+        count = 1
+        libraryNumber = buffer(start,count):uint()
+        subtree:add(buffer(start,count),"LibraryNumber: " .. libraryNumber)
+        start = start + count
+      else
+        -- LibraryID
+        libraryId, count = MSEX_LibraryID(buffer, start)
+        subtree:add(buffer(start,count),string.format("LibraryId: %s", str))
+        start = start + count
+      end
+
       count = 1
+
+      if version >= "1.2" then
+        count = 2
+      end
+
       element_count = buffer(start,count):uint()
       MEIn = subtree:add(buffer(start,count),string.format("Element Count: %d", element_count))
       start = start + count
@@ -516,6 +632,12 @@ function citp_proto.dissector(buffer,pinfo,tree)
         MEIn[i] = subtree:add(buffer(start,count),string.format("Number: %d", buffer(start,count):uint()))
         start = start + count
         
+        if version >= "1.2" then
+          count = 4
+          MEIn[i]:add(buffer(start,count),string.format("SerialNumber: %d", buffer(start,count):uint()))
+          start = start + count
+        end
+
         count = 1
         MEIn[i]:add(buffer(start,count),string.format("DMX Start: %d", buffer(start,count):uint()))
         start = start + count
@@ -570,56 +692,41 @@ function citp_proto.dissector(buffer,pinfo,tree)
       
       
       -- info
-      pinfo.cols.info:append (string.format("MEIn LibraryID: %s Elements: %d",libraryID ,element_count))
+      if version == "1.0" then
+        pinfo.cols.info:append (string.format("MEIn LibraryNumber: %s Elements: %d",libraryNumber ,element_count))
+      else
+        pinfo.cols.info:append (string.format("MEIn LibraryID: %s Elements: %d",libraryId ,element_count))
+      end
     end -- end if: MSEX/MEIn
     
-    -- MSEX/GEIn1.0 ------------------------------------------------------------------
-    -- Get Element Information message 1.0
-    if (buffer(22,4):string() == "GEIn") and (version == "1.0") then
+    -- MSEX/GEIn ---------------------------------------------------------------------
+    -- Get Element Information message
+    if (buffer(22,4):string() == "GEIn") then
       start = 26
       
       -- Library Type
       str, count = MSEX_LibraryType (buffer, start)
       subtree:add(buffer(start,count),string.format("Library Type: %s",str))
       start = start + count
+
+      if version == "1.0" then
+        count = 1
+        libraryNumber = buffer(start,count):le_uint()
+        subtree:add(buffer(start,count),"LibraryNumber: " .. libraryNumber)
+        start = start + count
+      else
+        -- LibraryID
+        libraryId, count = MSEX_LibraryID(buffer, start)
+        subtree:add(buffer(start,count),string.format("LibraryId: %s", libraryId))
+        start = start + count
+      end
       
       count = 1
-      local libraryNumber = buffer(start,count):le_uint()
-      subtree:add(buffer(start,count),"LibraryNumber: " .. libraryNumber)
-      start = start + count
       
-      count = 1
-      local elementCount = buffer(start,count):le_uint()
-      subtree:add(buffer(start,count),"Element Count: " .. elementCount)
-      start = start + count
+      if version >= "1.2" then
+        count = 2
+      end
       
-      count = 1
-      local elementNumbers = buffer(start,count):le_uint()
-      subtree:add(buffer(start,count),"Element Numbers: " .. elementNumbers)
-      start = start + count
-      
-      
-      -- info
-      pinfo.cols.info:append (string.format("GEIn >"))
-    end -- end if: MSEX/MEIn
-    
-    
-    -- MSEX/GEIn1.1 ------------------------------------------------------------------
-    -- Get Element Information message 1.1
-    if (buffer(22,4):string() == "GEIn") and (version == "1.1") then
-      start = 26
-      
-      -- Library Type
-      str, count = MSEX_LibraryType (buffer, start)
-      subtree:add(buffer(start,count),string.format("Library Type: %s",str))
-      start = start + count
-      
-      -- LibraryID
-      str, count = MSEX_LibraryID(buffer, start)
-      subtree:add(buffer(start,count),string.format("LibraryId: %s", str))
-      start = start + count
-      
-      count = 1
       elementCount = buffer(start,count):le_uint()
       subtree:add(buffer(start,count),"ElementCount: " .. elementCount)
       start = start + count
@@ -636,39 +743,16 @@ function citp_proto.dissector(buffer,pinfo,tree)
       end
       
       -- info
-      pinfo.cols.info:append (string.format("GEIn LibraryID: %s Count: %s (%d)", str, txt, elementCount))
-    end -- end if: MSEX/GEIn1.1
-    
-    -- MSEX/GELI1.0 ------------------------------------------------------------------
-    -- Get Element Library Information message 1.0
-    if (buffer(22,4):string() == "GELI") and (version == "1.0") then
-      start = 26
-      
-      -- Library Type
-      str, count = MSEX_LibraryType (buffer, start)
-      subtree:add(buffer(start,count),string.format("Library Type: %s",str))
-      start = start + count
-      
-      count = 1
-      libraryCount = buffer(start,count):uint()
-      subtree:add(buffer(start,count),string.format("Library Count: %d", libraryCount))
-      start = start + count
-      
-      if (libraryCount > 0) then
-        count = 1
-        for i = 1, libraryCount do
-          elements:add(buffer(start,count),"Element Number: %d" .. buffer(start,count):le_uint())
-          start = start + count
-        end
+      if version == "1.0" then
+        pinfo.cols.info:append (string.format("GEIn LibraryNumber: %s Count: %s (%d)", libraryNumber, txt, elementCount))
+      else
+        pinfo.cols.info:append (string.format("GEIn LibraryID: %s Count: %s (%d)", libraryId, txt, elementCount))
       end
-      
-      -- info
-      pinfo.cols.info:append (string.format("GELI LibraryID: %s Count:%d", libraryId, libraryCount))
-    end -- end if: MSEX/GELI1.0
-    
-    -- MSEX/GELI1.1 ------------------------------------------------------------------
-    -- Get Element Library Information message 1.1
-    if (buffer(22,4):string() == "GELI") and (version == "1.1") then
+    end -- end if: MSEX/GEIn
+   
+    -- MSEX/GELI ---------------------------------------------------------------------
+    -- Get Element Library Information message
+    if (buffer(22,4):string() == "GELI") then
       start = 26
       
       -- Library Type
@@ -676,12 +760,19 @@ function citp_proto.dissector(buffer,pinfo,tree)
       subtree:add(buffer(start,count),string.format("Library Type: %s",str))
       start = start + count
       
-      -- LibraryID
-      str, count = MSEX_LibraryID(buffer, start)
-      subtree:add(buffer(start,count),string.format("LibraryId: %s", str))
-      start = start + count
-      
+      if version >= "1.1" then
+        -- LibraryID
+        parentLibraryId, count = MSEX_LibraryID(buffer, start)
+        subtree:add(buffer(start,count),string.format("ParentLibraryId: %s", parentLibraryId))
+        start = start + count
+      end
+
       count = 1
+
+      if version >= "1.2" then
+        count = 2
+      end
+
       libraryCount = buffer(start,count):uint()
       if libraryCount == 0 then
         txt = "All"
@@ -699,12 +790,12 @@ function citp_proto.dissector(buffer,pinfo,tree)
         end
       end
       -- info
-      pinfo.cols.info:append (string.format("GELI LibraryID: %s Count: %s (%d)", str, txt, libraryCount))
-    end -- end if: MSEX/GELI1.1
+      pinfo.cols.info:append (string.format("GELI Count: %s (%d)", txt, libraryCount))
+    end -- end if: MSEX/GELI
     
-    -- MSEX/GELT 1.0 & 1.1 ------------------------------------------------------------------
-    -- Get Element Library Thumbnail message 1.0
-    if (buffer(22,4):string() == "GELT") and ((version == "1.0") or (version == "1.1")) then
+    -- MSEX/GELT ------------------------------------------------------------------
+    -- Get Element Library Thumbnail message
+    if (buffer(22,4):string() == "GELT") then
       start = 26
       
       -- Thumbnail Format
@@ -740,6 +831,11 @@ function citp_proto.dissector(buffer,pinfo,tree)
       
       -- LibraryCount
       count = 1
+
+      if version == "1.2" then
+        count = 2
+      end
+
       LibraryCount = buffer(start, count):uint()
       elements = subtree:add(buffer(start, count), string.format("Library Count: %d", LibraryCount))
       start = start + count
@@ -752,7 +848,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
             elements:add(buffer(start,count),"Library Numbers: %d" .. buffer(start,count):le_uint())
             start = start + count
           end
-          else
+        else
           -- LibraryID
           count = 1
           for i = 1, LibraryCount do
@@ -769,12 +865,12 @@ function citp_proto.dissector(buffer,pinfo,tree)
                                             dims,
                                             LibraryCount)
                               )
-    end -- end if: MSEX/GELT1.0 / 1.1
+    end -- end if: MSEX/GELT
     
     
-    -- MSEX/GETh 1.0 & 1.1 -------------------------------------------------------------
-    -- Get Element Get Element Thumbnail message 1.0 & 1.1
-    if (buffer(22,4):string() == "GETh") and ((version == "1.0") or (version == "1.1")) then
+    -- MSEX/GETh -------------------------------------------------------------
+    -- Get Element Get Element Thumbnail message
+    if (buffer(22,4):string() == "GETh") then
       start = 26
       
       -- Thumbnail Format
@@ -813,38 +909,40 @@ function citp_proto.dissector(buffer,pinfo,tree)
         count = 1
         subtree:add(buffer(start,count),"Library Numbers: %d" .. buffer(start,count):le_uint())
         start = start + count
-        -- TODO
         
-        elseif version == "1.1" then
+      else
         -- LibraryID
         LibraryID, count = MSEX_LibraryID (buffer, start)
         subtree:add(buffer(start,count),string.format("Library ID: %s", LibraryID))
         start = start + count
-        
-        -- Element Count
-        count = 1
-        element_count = buffer(start,count):le_uint()
-        element_tree = subtree:add(buffer(start,count),string.format("Element Count: %d", element_count))
+      end
+
+      -- Element Count
+      count = 1
+
+      if version == "1.2" then
+        count = 2
+      end
+
+      element_count = buffer(start,count):le_uint()
+      element_tree = subtree:add(buffer(start,count),string.format("Element Count: %d", element_count))
+      start = start + count
+      
+      -- Element Numbers
+      for i = 1, element_count do
+        -- LibraryID
+        element = buffer(start,count):uint()
+        element_tree:add(buffer(start,count),string.format("Element Number: %s", element))
         start = start + count
-        
-        -- Element Numbers
-        for i = 1, element_count do
-          -- LibraryID
-          element = buffer(start,count):uint()
-          element_tree:add(buffer(start,count),string.format("Element Number: %s", element))
-          start = start + count
-        end
-        -- info
-        pinfo.cols.info:append (string.format("GETh %s %s LibraryID: %s Count: %d",
+      end
+      -- info
+      pinfo.cols.info:append (string.format("GETh %s %s Count: %d",
                                               thumbnailFormat,
                                               dims,
-                                              LibraryID, 
                                               element_count)
                                 )
 
-      end
-      
-    end -- end if: MSEX/GEThT1.0 & 1.1
+    end -- end if: MSEX/GEThT
     
     -- MSEX/GVSr -------------------------------------------------------------
     -- GetVideoSources
