@@ -45,8 +45,8 @@ Currently Implemented (still a work in progress)
  * PINF  Peer Information Layer
 * MSEX
  * CInf  Client Information Message
- * ELIn  Element Library Information message 1.1 (1.0 and 1.2 NYI)
- * EThn  Element Thumbnail message 1.1
+ * ELIn  Element Library Information message
+ * EThn  Element Thumbnail message
  * GEIn  Get Element Information message
  * GELI Get Element Library Information message
  * GELT Get Element Library Thumbnail message
@@ -55,7 +55,7 @@ Currently Implemented (still a work in progress)
  * MEIn  Media Element Information message
  * Nack  Negative Acknowledge Message
  * RqSt  Request Stream message
- * SInf  Server Information Message  1.0 or 1.1
+ * SInf  Server Information Message
  * StFr  Stream Frame message
 
 TCP Ports
@@ -80,3 +80,12 @@ Example Capture.pcapng is provided as an example of a converscation between a Me
     * 010 - 011 [Mbox] Reply to 008 with 33 elements
     * 012       [GMA2] Get Element Thumbnail for Element 52.
     * 013 - 020 [Mbox] Element Thumbnail for Element 52 (Binary Data)
+    
+
+Testing
+=======
+1.2 Protocols need some real world testing
+
+Thanks
+======
+Thanks to MrRoundRobin for adding 1.2 support
