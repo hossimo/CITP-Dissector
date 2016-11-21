@@ -437,7 +437,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
         count = 2
       end
 
-      library_count = buffer(start,count):uint()
+      library_count = buffer(start,count):le_uint()
       element_tree = subtree:add(buffer(start,count),string.format("Library Count: %d", library_count))
       start = start + count
 
@@ -623,7 +623,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
         count = 2
       end
 
-      element_count = buffer(start,count):uint()
+      element_count = buffer(start,count):le_uint()
       MEIn = subtree:add(buffer(start,count),string.format("Element Count: %d", element_count))
       start = start + count
 
