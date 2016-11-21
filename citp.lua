@@ -430,17 +430,18 @@ function citp_proto.dissector(buffer,pinfo,tree)
       start = start + count
 
       -- Element Count
-      count = 1
 
+      -- Size of count in bytes
+      count = 1
       if version >= "1.2" then
         count = 2
       end
 
-      element_count = buffer(start,count):uint()
-      element_tree = subtree:add(buffer(start,count),string.format("Element Count: %d", element_count))
+      library_count = buffer(start,count):uint()
+      element_tree = subtree:add(buffer(start,count),string.format("Library Count: %d", library_count))
       start = start + count
 
-      for i = 1, element_count do
+      for i = 1, library_count do
         if version == "1.0" then
           -- LibraryNumber
           count = 1
@@ -500,7 +501,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
         lib_tree:add(buffer(start,count),string.format("Element Count: %d", buffer(start,count):uint()))
         start = start + count
       end
-      pinfo.cols.info:append (string.format("Elements: %d",element_count))
+      pinfo.cols.info:append (string.format("Libraries: %d",library_count))
 
     end
 
