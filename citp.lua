@@ -195,7 +195,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
 
         start = start + 1
         for i=1,buffer(start-1,1):uint() do
-          local supportVersion = buffer(start,1):uint() .. "." .. buffer(start+1,1):uint()
+          local supportVersion = buffer(start+1,1):uint() .. "." .. buffer(start,1):uint()
           subtree:add(buffer(start,2), "Supports: ".. supportVersion)
           start = start+2
         end
