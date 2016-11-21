@@ -490,7 +490,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
           	count = 2
           end
 
-          lib_tree:add(buffer(start,count),string.format("Sub Libraries %d", buffer(start,count):uint()))
+          lib_tree:add(buffer(start,count),string.format("Sub Libraries %d", buffer(start,count):le_uint()))
           start = start + count
         end
 
@@ -500,7 +500,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
           count = 2
         end
 
-        lib_tree:add(buffer(start,count),string.format("Element Count: %d", buffer(start,count):uint()))
+        lib_tree:add(buffer(start,count),string.format("Element Count: %d", buffer(start,count):le_uint()))
         start = start + count
       end
       pinfo.cols.info:append (string.format("Libraries: %d",library_count))
@@ -776,7 +776,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
         count = 2
       end
 
-      libraryCount = buffer(start,count):uint()
+      libraryCount = buffer(start,count):le_uint()
       if libraryCount == 0 then
         txt = "All"
         else
@@ -839,7 +839,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
         count = 2
       end
 
-      LibraryCount = buffer(start, count):uint()
+      LibraryCount = buffer(start, count):le_uint()
       elements = subtree:add(buffer(start, count), string.format("Library Count: %d", LibraryCount))
       start = start + count
 
