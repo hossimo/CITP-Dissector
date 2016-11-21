@@ -97,7 +97,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
 
     -- PNam
     if buffer(20,4):string() == "PNam" then
-      start = 26
+      start = 24
       count = string.find(buffer(start):string(),"\0",1)
       subtree:add(buffer(start, count),"Name: ".. buffer(start):string())
     end
