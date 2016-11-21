@@ -200,7 +200,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
           start = start+2
         end
 
-        supported_types = buffer(start,1)
+        supported_types = buffer(start,2):le_uint()
 
         if bit.band(supported_types,00000001) > 0 then
           str = str .. lt[1] .. ", "
@@ -235,22 +235,24 @@ function citp_proto.dissector(buffer,pinfo,tree)
 
         str = string.sub(str,1,-3)
 
-        subtree:add(buffer(start,1), "Supported Library Types: " .. str)
+        subtree:add(buffer(start,2), "Supported Library Types: " .. str)
+
+        start = start + 2
+
+        count = buffer(start,1):uint()
+        subtree:add(buffer(start,1), "Thumbnail Format Count: ".. count)
 
         start = start + 1
-
-        subtree:add(buffer(start,1), "Thumbnail Format Count: ".. buffer(start,1):uint())
-
-        start = start + 1
-        for i=0,buffer(start-1,1):uint() do
+        for i=0,count-1 do
           subtree:add(buffer(start,4), "Thumbnail Format: ".. buffer(start,4):string())
           start = start+4
         end
 
-        subtree:add(buffer(start,1), "Stream Format Count: ".. buffer(start,1):uint())
+        count = buffer(start,1):uint()
+        subtree:add(buffer(start,1), "Stream Format Count: ".. count)
 
         start = start + 1
-        for i=0,buffer(start-1,1):uint() do
+        for i=0,count-1 do
           subtree:add(buffer(start,4), "Stream Format: ".. buffer(start,4):string())
           start = start+4
         end
