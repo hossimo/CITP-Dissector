@@ -932,6 +932,8 @@ function citp_proto.dissector(buffer,pinfo,tree)
       -- Element Numbers
       for i = 1, element_count do
         -- LibraryID
+
+        count = 1 -- Element Numbers are always 1 byte --
         element = buffer(start,count):uint()
         element_tree:add(buffer(start,count),string.format("Element Number: %s", element))
         start = start + count
