@@ -97,7 +97,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
 
     -- PNam
     if buffer(20,4):string() == "PNam" then
-      start = 26
+      start = 24
       count = string.find(buffer(start):string(),"\0",1)
       subtree:add(buffer(start, count),"Name: ".. buffer(start):string())
     end
@@ -195,12 +195,12 @@ function citp_proto.dissector(buffer,pinfo,tree)
 
         start = start + 1
         for i=1,buffer(start-1,1):uint() do
-          local supportVersion = buffer(start,1):uint() .. "." .. buffer(start+1,1):uint()
+          local supportVersion = buffer(start+1,1):uint() .. "." .. buffer(start,1):uint()
           subtree:add(buffer(start,2), "Supports: ".. supportVersion)
           start = start+2
         end
 
-        supported_types = buffer(start,1)
+        supported_types = buffer(start,2):le_uint()
 
         if bit.band(supported_types,00000001) > 0 then
           str = str .. lt[1] .. ", "
@@ -235,22 +235,24 @@ function citp_proto.dissector(buffer,pinfo,tree)
 
         str = string.sub(str,1,-3)
 
-        subtree:add(buffer(start,1), "Supported Library Types: " .. str)
+        subtree:add(buffer(start,2), "Supported Library Types: " .. str)
+
+        start = start + 2
+
+        count = buffer(start,1):uint()
+        subtree:add(buffer(start,1), "Thumbnail Format Count: ".. count)
 
         start = start + 1
-
-        subtree:add(buffer(start,1), "Thumbnail Format Count: ".. buffer(start,1):uint())
-
-        start = start + 1
-        for i=0,buffer(start-1,1):uint() do
+        for i=0,count-1 do
           subtree:add(buffer(start,4), "Thumbnail Format: ".. buffer(start,4):string())
           start = start+4
         end
 
-        subtree:add(buffer(start,1), "Stream Format Count: ".. buffer(start,1):uint())
+        count = buffer(start,1):uint()
+        subtree:add(buffer(start,1), "Stream Format Count: ".. count)
 
         start = start + 1
-        for i=0,buffer(start-1,1):uint() do
+        for i=0,count-1 do
           subtree:add(buffer(start,4), "Stream Format: ".. buffer(start,4):string())
           start = start+4
         end
@@ -430,17 +432,18 @@ function citp_proto.dissector(buffer,pinfo,tree)
       start = start + count
 
       -- Element Count
-      count = 1
 
+      -- Size of count in bytes
+      count = 1
       if version >= "1.2" then
         count = 2
       end
 
-      element_count = buffer(start,count):uint()
-      element_tree = subtree:add(buffer(start,count),string.format("Element Count: %d", element_count))
+      library_count = buffer(start,count):le_uint()
+      element_tree = subtree:add(buffer(start,count),string.format("Library Count: %d", library_count))
       start = start + count
 
-      for i = 1, element_count do
+      for i = 1, library_count do
         if version == "1.0" then
           -- LibraryNumber
           count = 1
@@ -487,7 +490,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
           	count = 2
           end
 
-          lib_tree:add(buffer(start,count),string.format("Sub Libraries %d", buffer(start,count):uint()))
+          lib_tree:add(buffer(start,count),string.format("Sub Libraries %d", buffer(start,count):le_uint()))
           start = start + count
         end
 
@@ -497,10 +500,10 @@ function citp_proto.dissector(buffer,pinfo,tree)
           count = 2
         end
 
-        lib_tree:add(buffer(start,count),string.format("Element Count: %d", buffer(start,count):uint()))
+        lib_tree:add(buffer(start,count),string.format("Element Count: %d", buffer(start,count):le_uint()))
         start = start + count
       end
-      pinfo.cols.info:append (string.format("Elements: %d",element_count))
+      pinfo.cols.info:append (string.format("Libraries: %d",library_count))
 
     end
 
@@ -622,7 +625,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
         count = 2
       end
 
-      element_count = buffer(start,count):uint()
+      element_count = buffer(start,count):le_uint()
       MEIn = subtree:add(buffer(start,count),string.format("Element Count: %d", element_count))
       start = start + count
 
@@ -773,7 +776,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
         count = 2
       end
 
-      libraryCount = buffer(start,count):uint()
+      libraryCount = buffer(start,count):le_uint()
       if libraryCount == 0 then
         txt = "All"
         else
@@ -836,7 +839,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
         count = 2
       end
 
-      LibraryCount = buffer(start, count):uint()
+      LibraryCount = buffer(start, count):le_uint()
       elements = subtree:add(buffer(start, count), string.format("Library Count: %d", LibraryCount))
       start = start + count
 
@@ -931,6 +934,8 @@ function citp_proto.dissector(buffer,pinfo,tree)
       -- Element Numbers
       for i = 1, element_count do
         -- LibraryID
+
+        count = 1 -- Element Numbers are always 1 byte --
         element = buffer(start,count):uint()
         element_tree:add(buffer(start,count),string.format("Element Number: %s", element))
         start = start + count
