@@ -5,8 +5,8 @@ udp_table = DissectorTable.get("udp.port")
 tcp_table = DissectorTable.get("tcp.port")
 
 -- Globals
-dissector_version = "1.6"
-dissector_date = "2016-11-21"
+dissector_version = "1.6.1"
+dissector_date = "2017-01-31"
 listeningport = 0
 start = 0
 count = 0
@@ -98,12 +98,15 @@ function citp_proto.dissector(buffer,pinfo,tree)
     -- PNam
     if buffer(20,4):string() == "PNam" then
       start = 24
+      name=buffer(start):string();
+      pinfo.cols.info:append ("PNam >")   -- info
       count = string.find(buffer(start):string(),"\0",1)
       subtree:add(buffer(start, count),"Name: ".. buffer(start):string())
     end
 
     --PLoc
     if buffer(20,4):string() == "PLoc" then
+      pinfo.cols.info:append ("PLoc >")   -- info
       listeningport = buffer(24,2):le_uint()
       subtree:add(buffer(24,2), "Listening Port: " .. (listeningport))
 
@@ -114,12 +117,12 @@ function citp_proto.dissector(buffer,pinfo,tree)
       listeningport = 0
 
       start = 26
+      name = buffer(start):string()
       count = string.find(buffer(start):string(),"\0",1)
       subtree:add(buffer(start, count),"Type: ".. buffer(start):string())
       start = start+count
 
       count = string.find(buffer(start):string(),"\0",1)
-      name = buffer(start):string()
       subtree:add(buffer(start, count),"Name: ".. name)
 
       start = start+count
