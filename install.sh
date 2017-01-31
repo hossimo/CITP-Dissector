@@ -1,10 +1,24 @@
 #!/bin/sh
 
 #  install.sh
-#  Overwrite the citp.lua file with this version
+#  Overwrite the citp.lua file with this version and backup as needed
+
 DST="${HOME}/.wireshark/plugins/"
 SRC="citp.lua"
 BAK=-1
+OS=$(uname)
+
+if [[ $OS == "Darwin" ]]; then
+  DST="${HOME}/.config/wireshark/plugins/"
+  echo "* Installing on OSX. setting plugins path to:\n\t$DST"
+elif [[ $OS == "Linux" ]]; then
+  DST="${HOME}/.wireshark/plugins/"
+  echo "Installing on Linux. setting plugins path to:\n\t$DST"
+else
+  echo "* Unknown OS Name: $OS."
+  echo "\tExiting Installer."
+  exit
+fi
 
 ## check for plugins path
 if [[ ! -d "$DST" ]]; then
