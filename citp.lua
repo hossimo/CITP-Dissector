@@ -34,7 +34,9 @@ ct = {
   GELI = "Get Element Library Information message",
   GELT = "Get Element Library Thumbnail message",
   GVSr = "GetVideoSources",
-  VSrc = "Video Sources"
+  VSrc = "Video Sources",
+    -- Other
+  CAEX = "Capture Extensions"
 }
 
 lt = {
@@ -86,6 +88,15 @@ function citp_proto.dissector(buffer,pinfo,tree)
   if message_size > buffer:len() then
     pinfo.desegment_len = message_size - buffer:len()
     return
+  end
+  
+  -- CAEX ------------------------------------------------------------------------
+  -- Capture CITP Extensions
+  if buffer(16,4):string() == "CAEX" then
+    pinfo.cols.info:append ("CAEX >")   -- info
+    str = ct[buffer(20,4):string()] or "(Unknown)"
+    subtree:add(buffer(20,4), "Content Type: " .. buffer(20,4):string() .. " - " ..str)
+
   end
 
   -- PINF ------------------------------------------------------------------------
