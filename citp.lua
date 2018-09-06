@@ -102,6 +102,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
   -- PINF ------------------------------------------------------------------------
   -- Peer Information layer
   if buffer(16,4):string() == "PINF" then
+    name=""
     pinfo.cols.info:append ("PINF >")   -- info
     str = ct[buffer(20,4):string()] or "(Unknown)"
     subtree:add(buffer(20,4), "Content Type: " .. buffer(20,4):string() .. " - " ..str)
@@ -113,10 +114,9 @@ function citp_proto.dissector(buffer,pinfo,tree)
       pinfo.cols.info:append ("PNam >")   -- info
       count = string.find(buffer(start):string(),"\0",1)
       subtree:add(buffer(start, count),"Name: ".. buffer(start):string())
-    end
 
     --PLoc
-    if buffer(20,4):string() == "PLoc" then
+    elseif buffer(20,4):string() == "PLoc" then
       pinfo.cols.info:append ("PLoc >")   -- info
       listeningport = buffer(24,2):le_uint()
       subtree:add(buffer(24,2), "Listening Port: " .. (listeningport))
@@ -139,7 +139,9 @@ function citp_proto.dissector(buffer,pinfo,tree)
       start = start+count
       count = string.find(buffer(start):string(),"\0",1)
       subtree:add(buffer(start, count),"State: ".. buffer(start):string())
-    end
+    else
+	  pinfo.cols.info:append ("Unknown format or content type")
+	end
     pinfo.cols.info:append (name)   -- info
   end
 
