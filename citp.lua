@@ -145,10 +145,17 @@ function citp_proto.dissector(buffer,pinfo,tree)
       end
 	  
     elseif str == "Laser Feed Frame" then
+      pinfo.cols.info:append (" >Feed " .. buffer(28,1):le_uint())
       subtree:add( string.format("Source Key: 0x%08x", buffer(24,4):le_uint())) 
       subtree:add( "Feed Index: " .. buffer(28,1):le_uint())
 	  subtree:add( "Frame Seq Num: " .. buffer(29,4):le_uint())
 	  subtree:add( "Point Count: " .. buffer(33,2):le_uint())
+	  
+    elseif str == "Laser Feed Control" then
+      pinfo.cols.info:append (" >Feed " .. buffer(24,1):le_uint())
+      subtree:add( "Feed Index: " .. buffer(24,1):le_uint())
+	  subtree:add( "Framerate: " .. buffer(25,1):le_uint())
+
     end
   
   end
