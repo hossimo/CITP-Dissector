@@ -34,8 +34,40 @@ ct = {
   GELI = "Get Element Library Information message",
   GELT = "Get Element Library Thumbnail message",
   GVSr = "GetVideoSources",
-  VSrc = "Video Sources"
+  VSrc = "Video Sources",
+    -- Other
+  CAEX = "Capture Extensions"
 }
+
+-- Capture specific CITP extension content codes
+caex_ct = {}
+-- Live Views
+caex_ct[0x00000100] = "Get Live View Status"
+caex_ct[0x00000101] = "Live View Status"
+caex_ct[0x00000200] = "Get Live View Image"
+caex_ct[0x00000201] = "Live View Image"
+-- Cue recording
+caex_ct[0x00010100] = "Set Cue Recording Capabilities"
+caex_ct[0x00010200] = "Record Cue"
+caex_ct[0x00010300] = "Set Recorder Clearing Capabilities"
+caex_ct[0x00010400] = "Clear Recorder"
+-- Show Synchronization
+caex_ct[0x00020100] = "Enter Show"
+caex_ct[0x00020101] = "Leave Show"
+caex_ct[0x00020200] = "Fixture List Request"
+caex_ct[0x00020201] = "Fixture List"
+caex_ct[0x00020204] = "Fixture Identify"
+caex_ct[0x00020202] = "Fixture Modify"
+caex_ct[0x00020203] = "Fixture Remove"
+caex_ct[0x00020300] = "Fixture Selection"
+caex_ct[0x00020400] = "Fixture Console Status"
+-- Laser Feeds
+caex_ct[0x00030100] = "Get Laser Feed List"
+caex_ct[0x00030101] = "Laser Feed List"
+caex_ct[0x00030102] = "Laser Feed Control"
+caex_ct[0x00030200] = "Laser Feed Frame"
+
+
 
 lt = {
   "Media (Images & Video)",
@@ -87,10 +119,51 @@ function citp_proto.dissector(buffer,pinfo,tree)
     pinfo.desegment_len = message_size - buffer:len()
     return
   end
+  
+  -- CAEX ------------------------------------------------------------------------
+  -- Capture CITP Extensions
+  if buffer(16,4):string() == "CAEX" then
+    pinfo.cols.info:append ("CAEX >")   -- info
+      
+    caex_code = buffer(20,4):le_uint()
+    str = caex_ct[caex_code] or "(Unknown)"
+  
+    subtree:add(buffer(20,4), "Content Type: " .. string.format("%08x", caex_code) .. " - " ..str)
+    pinfo.cols.info:append (str)
+  
+    if str == "Laser Feed List" then
+      subtree:add( string.format("Source Key: 0x%08x", buffer(24,4):le_uint())) 
+      nFeeds = buffer(28,1):le_uint()
+      subtree:add( "Feed Count: " .. (nFeeds))
+      
+      feedNameStart = 29
+    
+      for i=1,nFeeds do
+        str, l = ucs2ascii(feedNameStart, buffer)
+        subtree:add("Feed " .. (i) .. ": " .. str)
+        feedNameStart = feedNameStart + l
+      end
+	  
+    elseif str == "Laser Feed Frame" then
+      pinfo.cols.info:append (" >Feed " .. buffer(28,1):le_uint())
+      subtree:add( string.format("Source Key: 0x%08x", buffer(24,4):le_uint())) 
+      subtree:add( "Feed Index: " .. buffer(28,1):le_uint())
+	  subtree:add( "Frame Seq Num: " .. buffer(29,4):le_uint())
+	  subtree:add( "Point Count: " .. buffer(33,2):le_uint())
+	  
+    elseif str == "Laser Feed Control" then
+      pinfo.cols.info:append (" >Feed " .. buffer(24,1):le_uint())
+      subtree:add( "Feed Index: " .. buffer(24,1):le_uint())
+	  subtree:add( "Framerate: " .. buffer(25,1):le_uint())
+
+    end
+  
+  end
 
   -- PINF ------------------------------------------------------------------------
   -- Peer Information layer
   if buffer(16,4):string() == "PINF" then
+    name=""
     pinfo.cols.info:append ("PINF >")   -- info
     str = ct[buffer(20,4):string()] or "(Unknown)"
     subtree:add(buffer(20,4), "Content Type: " .. buffer(20,4):string() .. " - " ..str)
@@ -102,10 +175,9 @@ function citp_proto.dissector(buffer,pinfo,tree)
       pinfo.cols.info:append ("PNam >")   -- info
       count = string.find(buffer(start):string(),"\0",1)
       subtree:add(buffer(start, count),"Name: ".. buffer(start):string())
-    end
 
     --PLoc
-    if buffer(20,4):string() == "PLoc" then
+    elseif buffer(20,4):string() == "PLoc" then
       pinfo.cols.info:append ("PLoc >")   -- info
       listeningport = buffer(24,2):le_uint()
       subtree:add(buffer(24,2), "Listening Port: " .. (listeningport))
@@ -128,7 +200,9 @@ function citp_proto.dissector(buffer,pinfo,tree)
       start = start+count
       count = string.find(buffer(start):string(),"\0",1)
       subtree:add(buffer(start, count),"State: ".. buffer(start):string())
-    end
+    else
+    pinfo.cols.info:append ("Unknown format or content type")
+  end
     pinfo.cols.info:append (name)   -- info
   end
 
@@ -490,7 +564,7 @@ function citp_proto.dissector(buffer,pinfo,tree)
           count = 1
 
           if version >= "1.2" then
-          	count = 2
+            count = 2
           end
 
           lib_tree:add(buffer(start,count),string.format("Sub Libraries %d", buffer(start,count):le_uint()))
