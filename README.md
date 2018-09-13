@@ -89,3 +89,4 @@ Testing
 Thanks
 ======
 Thanks to MrRoundRobin for adding 1.2 support
+Thanks to alphajbravo for adding CAEX Stub and fixing a PINF bugfix
