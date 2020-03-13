@@ -188,15 +188,18 @@ function citp_proto.dissector(buffer,pinfo,tree)
       end
       listeningport = 0
 
+      -- Read type
       start = 26
-      name = buffer(start):string()
       count = string.find(buffer(start):string(),"\0",1)
       subtree:add(buffer(start, count),"Type: ".. buffer(start):string())
+      
+      -- Read name (and store in name)
       start = start+count
-
+      name = buffer(start):string()
       count = string.find(buffer(start):string(),"\0",1)
       subtree:add(buffer(start, count),"Name: ".. name)
 
+      -- Read state
       start = start+count
       count = string.find(buffer(start):string(),"\0",1)
       subtree:add(buffer(start, count),"State: ".. buffer(start):string())
@@ -600,82 +603,149 @@ function citp_proto.dissector(buffer,pinfo,tree)
       LSta_status = {}
 
       for i = 1, layercount do
-        start = start + count
+        if version == "1.2" then
+          -- As of version 1.2 there is a new format
+          start = start + count
 
-        count = 1
-        LSta[i] = subtree:add(buffer(start,count), "Layer Number:" .. buffer(start,count):uint() .." (".. buffer(start+2,1):uint().."/"..buffer(start+3,1):uint()..")")
-        start = start + count
+          count = 1
+          LSta[i] = subtree:add(buffer(start,count), "Layer Number:" .. buffer(start,count):uint())
+          start = start + count
 
-        count = 1
-        LSta[i]:add(buffer(start,count), "Physical Output: " .. buffer(start,count):uint())
-        start = start + count
+          count = 1
+          LSta[i]:add(buffer(start,count), "Physical Output: " .. buffer(start,count):uint())
+          start = start + count
 
-        count = 1
-        LSta[i]:add(buffer(start,count), "Media Library: " .. buffer(start,count):uint())
-        start = start + count
+          count = 1
+          LSta[i]:add(buffer(start,count), "Media Library Type: " .. buffer(start,count):uint())
+          start = start + count
 
-        count = 1
-        LSta[i]:add(buffer(start,count), "Media Number: " .. buffer(start,count):uint())
-        start = start + count
+          count = 4
+          LSta[i]:add(buffer(start,count), "Media Library Id: " .. buffer(start,1):uint() .. "/" .. buffer(start + 1, 1):uint() .. "/" .. buffer(start + 2, 1):uint() .. "/" .. buffer(start + 3, 1):uint())
+          start = start + count
 
-        count = 0
-        str=""
+          count = 1
+          LSta[i]:add(buffer(start,count), "Media Number: " .. buffer(start,count):uint())
+          start = start + count
 
-        while buffer(start+count,1):uint() ~= 0 do
-          str = str .. buffer(start+count,1):string()
+          count = 0
+          str=""
+
+          while buffer(start+count,1):uint() ~= 0 do
+            str = str .. buffer(start+count,1):string()
+            count = count + 2
+          end
           count = count + 2
-        end
-        count = count + 2
 
-        LSta[i]:add(buffer(start,count), "Media Name: " .. str)
-        start = start + count
+          LSta[i]:add(buffer(start,count), "Media Name: " .. str)
+          start = start + count
 
-        count = 4
-        length = buffer(start,count):le_uint()
-        LSta[i]:add(buffer(start,count), "Media Position: " .. length)
-        start = start + count
+          count = 4
+          length = buffer(start,count):le_uint()
+          LSta[i]:add(buffer(start,count), "Media Position: " .. length)
+          start = start + count
 
-        count = 4
-        length = buffer(start,count):le_uint()
-        LSta[i]:add(buffer(start,count), "Media Length: " .. length)
-        start = start + count
+          count = 4
+          length = buffer(start,count):le_uint()
+          LSta[i]:add(buffer(start,count), "Media Length: " .. length)
+          start = start + count
 
-        count = 1
-        LSta[i]:add(buffer(start,count), "Media FPS: " .. buffer(start,count):uint())
-        start = start + count
+          count = 1
+          LSta[i]:add(buffer(start,count), "Media FPS: " .. buffer(start,count):uint())
+          start = start + count
 
-        count = 4
-        str = ""
-        current_stat = buffer(start+3,1) .. buffer(start+2,1).. buffer(start+1,1).. buffer(start,1)
+          count = 4
+          str = ""
+          current_stat = buffer(start+3,1) .. buffer(start+2,1).. buffer(start+1,1).. buffer(start,1)
 
-        if bit.band(current_stat,00000001) > 0 then
-          str = str .. "MediaPlaying, "
-        end
-        if bit.band(current_stat,00000002) > 0 then -- 1.2 Only
-          str = str .. "MediaPlaybackReverse, "
-        end
-        if bit.band(current_stat,00000004) > 0 then -- 1.2 Only
-          str = str .. "MediaPlaybackLooping, "
-        end
-        if bit.band(current_stat,00000008) > 0 then -- 1.2 Only
-          str = str .. "MediaPlaybackBouncing, "
-        end
-        if bit.band(current_stat,00000010) > 0 then -- 1.2 Only
-          str = str .. "MediaPlaybackRandom, "
-        end
-        if bit.band(current_stat,00000020) > 0 then -- 1.2 Only
-          str = str .. "MediaPaused, "
-        end
-        if current_stat == "00000000" then
-          str = "None, "
-        end
+          if bit.band(current_stat,00000001) > 0 then
+            str = str .. "MediaPlaying, "
+          end
+          if bit.band(current_stat,00000002) > 0 then -- 1.2 Only
+            str = str .. "MediaPlaybackReverse, "
+          end
+          if bit.band(current_stat,00000004) > 0 then -- 1.2 Only
+            str = str .. "MediaPlaybackLooping, "
+          end
+          if bit.band(current_stat,00000008) > 0 then -- 1.2 Only
+            str = str .. "MediaPlaybackBouncing, "
+          end
+          if bit.band(current_stat,00000010) > 0 then -- 1.2 Only
+            str = str .. "MediaPlaybackRandom, "
+          end
+          if bit.band(current_stat,00000020) > 0 then -- 1.2 Only
+            str = str .. "MediaPaused, "
+          end
+          if current_stat == "00000000" then
+            str = "None, "
+          end
 
-        str = string.sub(str,1,-3)
+          str = string.sub(str,1,-3)
 
-        LSta[i]:add(buffer(start,count), "Layer Status: ".."("..current_stat..") "..str)
+          LSta[i]:add(buffer(start,count), "Layer Status: ".."("..current_stat..") "..str)
+        else
+          -- pre 1.2 format (1.0 format)
+          start = start + count
+
+          count = 1
+          LSta[i] = subtree:add(buffer(start,count), "Layer Number:" .. buffer(start,count):uint() .." (".. buffer(start+2,1):uint().."/"..buffer(start+3,1):uint()..")")
+          start = start + count
+
+          count = 1
+          LSta[i]:add(buffer(start,count), "Physical Output: " .. buffer(start,count):uint())
+          start = start + count
+
+          count = 1
+          LSta[i]:add(buffer(start,count), "Media Library: " .. buffer(start,count):uint())
+          start = start + count
+
+          count = 1
+          LSta[i]:add(buffer(start,count), "Media Number: " .. buffer(start,count):uint())
+          start = start + count
+
+          count = 0
+          str=""
+
+          while buffer(start+count,1):uint() ~= 0 do
+            str = str .. buffer(start+count,1):string()
+            count = count + 2
+          end
+          count = count + 2
+
+          LSta[i]:add(buffer(start,count), "Media Name: " .. str)
+          start = start + count
+
+          count = 4
+          length = buffer(start,count):le_uint()
+          LSta[i]:add(buffer(start,count), "Media Position: " .. length)
+          start = start + count
+
+          count = 4
+          length = buffer(start,count):le_uint()
+          LSta[i]:add(buffer(start,count), "Media Length: " .. length)
+          start = start + count
+
+          count = 1
+          LSta[i]:add(buffer(start,count), "Media FPS: " .. buffer(start,count):uint())
+          start = start + count
+
+          count = 4
+          str = ""
+          current_stat = buffer(start+3,1) .. buffer(start+2,1).. buffer(start+1,1).. buffer(start,1)
+
+          if bit.band(current_stat,00000001) > 0 then
+            str = str .. "MediaPlaying, "
+          end
+          if current_stat == "00000000" then
+            str = "None, "
+          end
+
+          str = string.sub(str,1,-3)
+
+          LSta[i]:add(buffer(start,count), "Layer Status: ".."("..current_stat..") "..str)
+        end
       end -- end for : Layer Count
       --info
-      pinfo.cols.info:append (string.format("LAYER COUNT:%d",layercount))
+      pinfo.cols.info:append (string.format("LAYER COUNT: %d",layercount))
     end -- end if : MSEX/LSta
 
     -- MSEX/MEIn ---------------------------------------------------------------------
